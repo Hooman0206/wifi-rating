@@ -1,0 +1,2968 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wifi-rating — Rate WiFi Everywhere</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --card: #1a2235;
+    --border: #2a3a55;
+    --accent: #00c8e0;
+    --accent2: #7c3aed;
+    --green: #00cc7a;
+    --yellow: #e6c000;
+    --red: #ff4d6d;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --signal-1: #ff4d6d;
+    --signal-2: #ff9500;
+    --signal-3: #ffd600;
+    --signal-4: #7fd962;
+    --signal-5: #00ff9d;
+    --shadow: rgba(0,0,0,.3);
+  }
+
+  /* ─── LIGHT MODE ─── */
+  body.light {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --card: #f8fafc;
+    --border: #cbd5e1;
+    --accent: #0284c7;
+    --accent2: #7c3aed;
+    --green: #16a34a;
+    --yellow: #ca8a04;
+    --red: #dc2626;
+    --text: #0f172a;
+    --muted: #64748b;
+    --signal-1: #dc2626;
+    --signal-2: #ea580c;
+    --signal-3: #ca8a04;
+    --signal-4: #16a34a;
+    --signal-5: #0284c7;
+    --shadow: rgba(0,0,0,.08);
+  }
+
+  /* ─── GPS BUTTON ─── */
+  .gps-btn {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .gps-btn:hover { border-color: var(--accent); }
+  .gps-btn.locating {
+    border-color: var(--accent);
+    animation: gpsPulse 1s ease-in-out infinite;
+  }
+  @keyframes gpsPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,200,224,.4); }
+    50%      { box-shadow: 0 0 0 8px rgba(0,200,224,0); }
+  }
+  .gps-btn.located { border-color: var(--green); }
+
+  /* dot ตำแหน่งตัวเองบนแมพ */
+  .my-location-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #4285f4;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+
+  /* ─── THEME TOGGLE ─── */
+  .theme-btn {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s;
+    flex-shrink: 0;
+  }
+  .theme-btn:hover { border-color: var(--accent); background: var(--surface); }
+
+  /* light mode ต้องปรับ map placeholder */
+  body.light .map-placeholder {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 50%, #dde4ed 100%);
+  }
+  body.light .map-placeholder::before {
+    background-image:
+      linear-gradient(rgba(2,132,199,.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(2,132,199,.08) 1px, transparent 1px);
+  }
+  body.light .fake-pin.pin-good  { background: #16a34a; }
+  body.light .fake-pin.pin-ok    { background: #ca8a04; }
+  body.light .fake-pin.pin-bad   { background: #dc2626; }
+  body.light .fake-pin.pin-good2 { background: #16a34a; }
+
+  /* light mode nav shadow */
+  body.light nav {
+    box-shadow: 0 1px 4px var(--shadow);
+  }
+  body.light .review-sheet {
+    box-shadow: 0 20px 60px rgba(0,0,0,.15);
+  }
+  body.light #reviewPanel {
+    background: rgba(15,23,42,.5);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 17px; }
+  body {
+    font-family: 'Noto Sans Thai', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-size: 1rem;
+  }
+
+  /* ─── TOP NAV ─── */
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -1px;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--green); }
+  .search-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .search-wrap:focus-within { border-color: var(--accent); }
+  #searchInput {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-size: 16px;
+  }
+  #searchInput::placeholder { color: var(--muted); }
+  #searchBtn {
+    padding: 10px 20px;
+    background: var(--accent);
+    border: none;
+    color: #000;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: background .2s;
+    white-space: nowrap;
+  }
+  #searchBtn:hover { background: #33eeff; }
+
+  /* ─── MAIN LAYOUT ─── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ─── MAP ─── */
+  #map {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+  }
+  .map-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #0d1b2e 0%, #0a1628 50%, #0d2040 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .map-placeholder::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,.06) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .map-placeholder p {
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+    line-height: 1.7;
+    position: relative;
+  }
+  .map-placeholder p strong { color: var(--accent); }
+
+  /* fake map pins */
+  .fake-pin {
+    position: absolute;
+    width: 36px; height: 36px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    cursor: pointer;
+    transition: transform .2s;
+    animation: pinPop .4s ease both;
+  }
+  .fake-pin:hover { transform: rotate(-45deg) scale(1.2); }
+  .fake-pin .inner { transform: rotate(45deg); }
+  @keyframes pinPop { from { opacity:0; transform:rotate(-45deg) scale(0) } to { opacity:1; transform:rotate(-45deg) scale(1) } }
+  .pin-good { background: var(--green); top: 35%; left: 30%; animation-delay:.1s }
+  .pin-ok   { background: var(--yellow); top: 55%; left: 55%; animation-delay:.2s }
+  .pin-bad  { background: var(--red); top: 25%; left: 65%; animation-delay:.3s }
+  .pin-good2{ background: var(--green); top: 65%; left: 25%; animation-delay:.4s }
+
+  .pin-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: rotate(45deg) translateX(-50%);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    white-space: nowrap;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    z-index: 10;
+  }
+  .fake-pin:hover .pin-tooltip { opacity: 1; }
+
+  /* ─── SIDEBAR ─── */
+  #sidebar {
+    width: 420px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-header h2 {
+    font-size: 16px;
+    font-family: 'Space Mono', monospace;
+    color: var(--accent);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .sidebar-header p { font-size: 14px; color: var(--muted); }
+
+  .results-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* snap ให้เห็น 2 card พอดี แล้วเลื่อนดูที่เหลือ */
+    scroll-snap-type: y proximity;
+  }
+  .results-list::-webkit-scrollbar { width: 4px; }
+  .results-list::-webkit-scrollbar-track { background: transparent; }
+  .results-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ─── PLACE CARD ─── */
+  .place-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color .2s, transform .15s;
+    animation: slideIn .3s ease both;
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+  .place-card:hover { border-color: var(--accent); transform: translateX(-2px); }
+  .place-card.active { border-color: var(--accent); background: #1e2d47; }
+  @keyframes slideIn { from { opacity:0; transform:translateX(20px) } to { opacity:1; transform:translateX(0) } }
+  .place-name {
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 5px;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .place-type {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .wifi-score-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .wifi-label {
+    font-size: 14px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .stars-display { display: flex; gap: 4px; }
+  .star-icon {
+    width: 20px; height: 20px;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .star-on { background: var(--yellow); }
+  .star-off { background: var(--border); }
+  .review-count {
+    font-size: 14px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  .speed-bar {
+    height: 5px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 5px;
+  }
+  .speed-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width .6s ease;
+  }
+  .speed-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  .review-btn {
+    margin-top: 12px;
+    width: 100%;
+    padding: 12px;
+    background: rgba(0,229,255,.1);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    color: var(--accent);
+    font-size: 15px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: background .2s;
+  }
+  .review-btn:hover { background: rgba(0,229,255,.2); }
+
+  /* ─── REVIEW PANEL — Full Page ─── */
+  #reviewPanel {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: none;
+    flex-direction: column;
+    z-index: 200;
+    overflow: hidden;
+  }
+  #reviewPanel.open { display: flex; }
+  .review-sheet {
+    background: var(--bg);
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    animation: pageFadeIn .25s ease;
+    overflow: hidden;
+    border-radius: 0;
+    border: none;
+  }
+  @keyframes pageFadeIn { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+
+  /* header bar */
+  .sheet-header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--surface);
+  }
+  .sheet-back-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sheet-back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sheet-place-big {
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+    letter-spacing: -.01em;
+    text-align: center;
+    flex: 1;
+  }
+
+  /* 2-column body */
+  .sheet-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* LEFT — speed test */
+  .sheet-left {
+    width: 52%;
+    flex-shrink: 0;
+    padding: 20px 20px 20px 28px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .sheet-left::-webkit-scrollbar { width: 3px; }
+  .sheet-left::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* RIGHT — comment + past reviews */
+  .sheet-right {
+    flex: 1;
+    padding: 20px 28px 20px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .sheet-right::-webkit-scrollbar { width: 3px; }
+  .sheet-right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* footer actions */
+  .sheet-footer {
+    padding: 14px 28px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    gap: 10px;
+  }
+
+  .rating-section { margin: 0; }
+  .rating-label {
+    font-size: 15px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  /* past reviews */
+  .past-reviews-title {
+    font-size: 15px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .past-review-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: slideIn .3s ease;
+  }
+  .past-review-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .past-review-signal {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 18px;
+  }
+  .past-sig-bar {
+    width: 5px;
+    border-radius: 2px 2px 1px 1px;
+    background: var(--border);
+  }
+  .past-sig-bar:nth-child(1) { height: 25%; }
+  .past-sig-bar:nth-child(2) { height: 42%; }
+  .past-sig-bar:nth-child(3) { height: 60%; }
+  .past-sig-bar:nth-child(4) { height: 78%; }
+  .past-sig-bar:nth-child(5) { height: 96%; }
+  .past-sig-bar.on-1 { background: var(--signal-1); }
+  .past-sig-bar.on-2 { background: var(--signal-2); }
+  .past-sig-bar.on-3 { background: var(--signal-3); }
+  .past-sig-bar.on-4 { background: var(--signal-4); }
+  .past-sig-bar.on-5 { background: var(--signal-5); }
+  .past-review-speed {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .past-review-date {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    opacity: .6;
+    margin-left: auto;
+  }
+  .past-review-comment {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+    opacity: .85;
+  }
+  .past-review-empty {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    padding: 20px 0;
+    font-style: italic;
+  }
+
+  /* ─── RATING CHART ─── */
+  .rating-chart {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .chart-bars { display: flex; flex-direction: column; gap: 6px; }
+  .chart-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+  }
+  .chart-label {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    width: 36px;
+    flex-shrink: 0;
+    color: var(--muted);
+  }
+  .chart-sig {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+  }
+  .chart-sig-bar {
+    width: 4px;
+    border-radius: 1px;
+    background: var(--border);
+  }
+  .chart-sig-bar:nth-child(1) { height: 25%; }
+  .chart-sig-bar:nth-child(2) { height: 45%; }
+  .chart-sig-bar:nth-child(3) { height: 65%; }
+  .chart-sig-bar:nth-child(4) { height: 82%; }
+  .chart-sig-bar:nth-child(5) { height: 100%; }
+  .chart-track {
+    flex: 1;
+    height: 10px;
+    background: var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .chart-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width .6s ease;
+    min-width: 2px;
+  }
+  .chart-count {
+    width: 28px;
+    text-align: right;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    flex-shrink: 0;
+  }
+
+  /* mobile: stack vertically */
+  @media (max-width: 640px) {
+    .sheet-body { flex-direction: column; overflow: visible; }
+    .sheet-left  { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 16px; max-height: none; overflow: visible; }
+    .sheet-right { padding: 16px; max-height: none; }
+    .sheet-header { padding: 12px 16px; }
+    .sheet-footer { padding: 12px 16px; }
+    .review-sheet { border-radius: 0; }
+    .sheet-place-big { font-size: 17px; }
+    .sheet-back-btn { padding: 7px 12px; font-size: 12px; }
+  }
+  /* ─── WIFI TEST BUTTON ─── */
+  .wifi-test-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    transition: border-color .3s;
+  }
+  .wifi-test-wrap.testing { border-color: var(--accent); }
+  .wifi-test-wrap.done-good { border-color: var(--green); }
+  .wifi-test-wrap.done-mid  { border-color: var(--yellow); }
+  .wifi-test-wrap.done-bad  { border-color: var(--red); }
+
+  .wifi-test-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .wifi-test-label {
+    font-size: 15px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .btn-test-wifi {
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--accent);
+    background: rgba(0,229,255,.08);
+    color: var(--accent);
+    font-size: 15px;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .btn-test-wifi:hover:not(:disabled) { background: rgba(0,229,255,.2); }
+  .btn-test-wifi:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* สัญญาณ 5 ขีด */
+  .signal-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    height: 40px;
+  }
+  .signal-bar {
+    width: 18px;
+    border-radius: 3px 3px 2px 2px;
+    background: var(--border);
+    transition: background .4s ease, height .4s ease;
+    position: relative;
+  }
+  .signal-bar:nth-child(1) { height: 20%; }
+  .signal-bar:nth-child(2) { height: 36%; }
+  .signal-bar:nth-child(3) { height: 52%; }
+  .signal-bar:nth-child(4) { height: 72%; }
+  .signal-bar:nth-child(5) { height: 92%; }
+
+  /* state: กำลังทดสอบ — pulse ทีละขีด */
+  .signal-bar.scanning {
+    animation: barPulse 1s ease-in-out infinite;
+  }
+  .signal-bar:nth-child(1).scanning { animation-delay: 0s; }
+  .signal-bar:nth-child(2).scanning { animation-delay: .15s; }
+  .signal-bar:nth-child(3).scanning { animation-delay: .30s; }
+  .signal-bar:nth-child(4).scanning { animation-delay: .45s; }
+  .signal-bar:nth-child(5).scanning { animation-delay: .60s; }
+  @keyframes barPulse {
+    0%,100% { background: var(--border); }
+    50% { background: var(--accent); opacity: .7; }
+  }
+
+  /* state: เสร็จแล้ว — ไล่สี 1-5 ขีดตามผล */
+  .signal-bar.active-1 { background: var(--signal-1); }
+  .signal-bar.active-2 { background: var(--signal-2); }
+  .signal-bar.active-3 { background: var(--signal-3); }
+  .signal-bar.active-4 { background: var(--signal-4); }
+  .signal-bar.active-5 { background: var(--signal-5); }
+
+  /* glow ที่ขีดที่ active */
+  .signal-bar.lit {
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  .wifi-test-result {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 22px;
+  }
+  .result-speed {
+    font-family: 'Space Mono', monospace;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text);
+    transition: color .4s;
+  }
+  .result-speed.good { color: var(--green); }
+  .result-speed.mid  { color: var(--yellow); }
+  .result-speed.bad  { color: var(--red); }
+  .result-label {
+    font-size: 15px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    text-align: right;
+    line-height: 1.5;
+  }
+  .result-hint {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  /* ─── STAR PICKER ─── */
+  .star-picker { display: flex; gap: 8px; }
+  .star-btn {
+    width: 62px; height: 56px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    transition: all .15s;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    padding: 0;
+  }
+  .star-btn:hover { border-color: var(--accent); color: var(--accent); transform: scale(1.08); }
+  .star-btn[data-val="1"].selected { border-color: var(--signal-1); color: var(--signal-1); background: rgba(255,77,109,.12); }
+  .star-btn[data-val="2"].selected { border-color: var(--signal-2); color: var(--signal-2); background: rgba(255,149,0,.12); }
+  .star-btn[data-val="3"].selected { border-color: var(--signal-3); color: var(--signal-3); background: rgba(255,214,0,.12); }
+  .star-btn[data-val="4"].selected { border-color: var(--signal-4); color: var(--signal-4); background: rgba(127,217,98,.12); }
+  .star-btn[data-val="5"].selected { border-color: var(--signal-5); color: var(--signal-5); background: rgba(0,255,157,.12); }
+
+  .speed-section { margin-bottom: 20px; }
+  .speed-options { display: flex; gap: 8px; flex-wrap: wrap; }
+  .speed-opt {
+    padding: 9px 17px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-size: 15px;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer;
+    transition: all .15s;
+    color: var(--text);
+  }
+  .speed-opt:hover, .speed-opt.selected { border-color: var(--accent); background: rgba(0,229,255,.1); color: var(--accent); }
+
+  .comment-section { margin: 0; }
+  #commentInput {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    color: var(--text);
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-size: 17px;
+    resize: none;
+    outline: none;
+    transition: border-color .2s;
+    height: 120px;
+  }
+  #commentInput:focus { border-color: var(--accent); }
+  #commentInput::placeholder { color: var(--muted); }
+
+  .sheet-footer { display: flex; gap: 10px; }
+  .btn-cancel {
+    padding: 14px 28px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-size: 17px;
+    cursor: pointer;
+    font-family: 'Noto Sans Thai', sans-serif;
+    transition: border-color .2s;
+    white-space: nowrap;
+  }
+  .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+  .btn-submit {
+    flex: 1; padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #000;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans Thai', sans-serif;
+    transition: background .2s;
+  }
+  .btn-submit:hover { background: #33eeff; }
+
+  .past-review-comment {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.5;
+    opacity: .85;
+  }
+  .past-review-speed {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .past-review-date {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    opacity: .6;
+    margin-left: auto;
+  }
+
+  /* ─── STAR PICKER ─── */
+  .star-picker { display: flex; gap: 8px; }
+  .star-btn {
+    width: 52px; height: 48px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    transition: all .15s;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    padding: 0;
+  }
+  .star-btn:hover { border-color: var(--accent); color: var(--accent); transform: scale(1.08); }
+
+  /* ขีด 1 = แดง, 2 = ส้ม, 3 = เหลือง, 4 = เขียวอ่อน, 5 = เขียว */
+  .star-btn[data-val="1"].selected { border-color: var(--signal-1); color: var(--signal-1); background: rgba(255,77,109,.12); }
+  .star-btn[data-val="2"].selected { border-color: var(--signal-2); color: var(--signal-2); background: rgba(255,149,0,.12); }
+  .star-btn[data-val="3"].selected { border-color: var(--signal-3); color: var(--signal-3); background: rgba(255,214,0,.12); }
+  .star-btn[data-val="4"].selected { border-color: var(--signal-4); color: var(--signal-4); background: rgba(127,217,98,.12); }
+  .star-btn[data-val="5"].selected { border-color: var(--signal-5); color: var(--signal-5); background: rgba(0,255,157,.12); }
+
+  .speed-section { margin-bottom: 20px; }
+  .speed-options { display: flex; gap: 8px; flex-wrap: wrap; }
+  .speed-opt {
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer;
+    transition: all .15s;
+    color: var(--text);
+  }
+  .speed-opt:hover, .speed-opt.selected { border-color: var(--accent); background: rgba(0,229,255,.1); color: var(--accent); }
+
+  .comment-section { margin: 0; }
+  #commentInput {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    color: var(--text);
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-size: 13px;
+    resize: none;
+    outline: none;
+    transition: border-color .2s;
+    height: 110px;
+  }
+  #commentInput:focus { border-color: var(--accent); }
+  #commentInput::placeholder { color: var(--muted); }
+
+  .sheet-footer { display: flex; gap: 10px; }
+  .btn-cancel {
+    padding: 11px 24px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    font-family: 'Noto Sans Thai', sans-serif;
+    transition: border-color .2s;
+    white-space: nowrap;
+  }
+  .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+  .btn-submit {
+    flex: 1; padding: 11px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #000;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans Thai', sans-serif;
+    transition: background .2s;
+  }
+  .btn-submit:hover { background: #33eeff; }
+
+  /* ─── LANG DROPDOWN ─── */
+  .lang-dropdown {
+    position: relative;
+    flex-shrink: 0;
+  }
+  .lang-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color .2s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .lang-trigger:hover { border-color: var(--accent); }
+  .lang-trigger.open  { border-color: var(--accent); border-radius: 8px 8px 0 0; }
+  .lang-flag { font-size: 15px; line-height: 1; }
+  .lang-chevron {
+    font-size: 9px;
+    opacity: .5;
+    transition: transform .2s;
+  }
+  .lang-trigger.open .lang-chevron { transform: rotate(180deg); }
+
+  .lang-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 160px;
+    background: var(--card);
+    border: 1px solid var(--accent);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+    z-index: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .lang-menu.open { display: block; animation: menuDown .15s ease; }
+  @keyframes menuDown { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }
+
+  .lang-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background .15s;
+    font-size: 13px;
+    font-family: 'Noto Sans Thai', sans-serif;
+    color: var(--text);
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+  .lang-option:hover { background: rgba(0,229,255,.08); }
+  .lang-option.active { color: var(--accent); }
+  .lang-option .opt-flag {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0,200,224,.1);
+    border: 1px solid rgba(0,200,224,.25);
+    border-radius: 5px;
+    padding: 2px 6px;
+    min-width: 30px;
+    text-align: center;
+  }
+  .lang-option .opt-label { flex: 1; }
+  .lang-option .opt-check { font-size: 11px; color: var(--accent); opacity: 0; }
+  .lang-option.active .opt-check { opacity: 1; }
+
+  /* ─── SECURITY PANEL ─── */
+  .security-panel {
+    margin-top: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+  .security-panel:hover { border-color: var(--accent); }
+  .security-title {
+    font-size: 13px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    letter-spacing: .04em;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+  }
+  /* checklist animated */
+  .security-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 0;
+  }
+  .sec-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity .3s ease, transform .3s ease;
+  }
+  .sec-item.visible { opacity: 1; transform: translateX(0); }
+  .sec-icon {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .sec-icon.pass    { background: rgba(0,255,157,.15);  color: var(--green); }
+  .sec-icon.fail    { background: rgba(255,77,109,.15); color: var(--red); }
+  .sec-icon.warn    { background: rgba(255,214,0,.15);  color: var(--yellow); }
+  .sec-icon.loading { background: rgba(100,116,139,.15); color: var(--muted); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sec-text { color: var(--muted); font-size: 13px; }
+  .sec-text.done { color: var(--text); }
+
+  /* สรุปผลสุดท้าย */
+  .security-tip {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 12px;
+    border-radius: 8px;
+    line-height: 1.5;
+    margin-top: 10px;
+    display: none;
+  }
+  .security-tip.show { display: block; animation: slideIn .3s ease; }
+  .security-tip.safe    { background: rgba(0,255,157,.1);   color: #6effc8; border: 1px solid rgba(0,255,157,.25); }
+  .security-tip.caution { background: rgba(255,214,0,.1);   color: #ffe066; border: 1px solid rgba(255,214,0,.25); }
+  .security-tip.danger  { background: rgba(255,77,109,.1);  color: #ff8fa3; border: 1px solid rgba(255,77,109,.25); }
+
+  /* ─── SECURITY DETAIL POPUP ─── */
+  #secDetailOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    padding: 20px;
+  }
+  .sec-detail-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 420px;
+    overflow: hidden;
+    animation: sheetUp .25s ease;
+    box-shadow: 0 20px 50px rgba(0,0,0,.4);
+  }
+  .sec-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .sec-detail-close {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sec-detail-close:hover { border-color: var(--red); color: var(--red); }
+  .sec-detail-list { padding: 12px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .sec-detail-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .sec-detail-icon {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .sec-detail-icon.pass { background: rgba(0,255,157,.15); color: var(--green); }
+  .sec-detail-icon.fail { background: rgba(255,77,109,.15); color: var(--red); }
+  .sec-detail-icon.warn { background: rgba(255,214,0,.15);  color: var(--yellow); }
+  .sec-detail-text { display: flex; flex-direction: column; gap: 2px; }
+  .sec-detail-label { font-size: 15px; font-weight: 600; color: var(--text); }
+  .sec-detail-desc  { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* คลิกได้ */
+  .security-tip[role="button"] { cursor: pointer; }
+  .security-tip[role="button"]:hover { filter: brightness(1.1); }
+  .security-tip[role="button"]::after {
+    content: ' › ดูรายละเอียด';
+    font-size: 11px;
+    opacity: .7;
+    font-family: 'Space Mono', monospace;
+  }
+  body:lang(en) .security-tip[role="button"]::after,
+  .security-tip[role="button"].en::after { content: ' › See details'; }
+  .char-counter {
+    text-align: right;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    margin-top: 4px;
+    transition: color .2s;
+  }
+  .char-counter.warn  { color: var(--yellow); }
+  .char-counter.limit { color: var(--red); font-weight: 700; }
+
+  /* ─── WELCOME POPUP ─── */
+  #welcomeOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    padding: 20px;
+  }
+  .welcome-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    max-width: 460px;
+    width: 100%;
+    padding: 32px 28px 24px;
+    animation: sheetUp .35s ease;
+    box-shadow: 0 24px 60px rgba(0,0,0,.4);
+  }
+  .welcome-icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
+  .welcome-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    margin-bottom: 18px;
+    line-height: 1.3;
+  }
+  .welcome-checks { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+  .welcome-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .welcome-check .wc-icon {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .wc-icon.info   { background: rgba(0,200,224,.15); color: var(--accent); }
+  .wc-icon.warn   { background: rgba(255,214,0,.15); color: var(--yellow); }
+  .wc-icon.shield { background: rgba(0,204,122,.15); color: var(--green); }
+  .welcome-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+  .btn-welcome {
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    color: #000;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans Thai', sans-serif;
+    transition: background .2s;
+  }
+  .btn-welcome:hover { filter: brightness(1.1); }
+  .welcome-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--green);
+    color: #000;
+    padding: 12px 24px;
+    border-radius: 40px;
+    font-weight: 700;
+    font-size: 14px;
+    font-family: 'Space Mono', monospace;
+    z-index: 300;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .3s ease, visibility .3s ease;
+  }
+  .toast.show { opacity: 1; visibility: visible; }
+
+  .api-notice {
+    background: rgba(124,58,237,.15);
+    border: 1px solid var(--accent2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #c4b5fd;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+    text-align: center;
+  }
+  .api-notice code {
+    background: rgba(124,58,237,.3);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 40px; opacity: .4; }
+  .empty-state p { font-size: 13px; line-height: 1.7; }
+
+  #googleMap { width: 100%; height: 100%; display: none; }
+
+  /* ─── ADS ─── */
+
+  /* แถบโฆษณาใต้ nav (leaderboard 728x90 style) */
+  .ad-banner-top {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 20px;
+    flex-shrink: 0;
+    min-height: 60px;
+    position: relative;
+  }
+  .ad-label {
+    position: absolute;
+    top: 4px; right: 8px;
+    font-size: 9px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    opacity: .6;
+  }
+  /* Google AdSense slot จริง */
+  .adsense-slot {
+    display: block;
+    width: 100%;
+    max-width: 728px;
+    min-height: 60px;
+  }
+
+  /* โฆษณา Native card ในรายการ (กลมกลืน ไม่รบกวน) */
+  .ad-native-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+    text-decoration: none;
+    display: block;
+    transition: border-color .2s;
+  }
+  .ad-native-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,229,255,.03) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .ad-native-card:hover { border-color: rgba(0,229,255,.4); }
+  .ad-native-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .ad-native-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+    line-height: 1.4;
+  }
+  .ad-native-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .ad-native-cta {
+    display: inline-block;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--accent);
+    border: 1px solid rgba(0,229,255,.3);
+    border-radius: 6px;
+    padding: 4px 10px;
+    transition: background .2s;
+  }
+  .ad-native-card:hover .ad-native-cta { background: rgba(0,229,255,.1); }
+  .ad-native-icon {
+    position: absolute;
+    right: 14px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 28px;
+    opacity: .25;
+  }
+
+  /* โฆษณา sidebar footer (fixed ด้านล่าง sidebar) */
+  .ad-sidebar-footer {
+    border-top: 1px solid var(--border);
+    padding: 10px 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 66px;
+    position: relative;
+    background: var(--surface);
+  }
+  .ad-sidebar-footer .ad-label { top: 3px; right: 6px; }
+
+  /* ─── MOBILE RESPONSIVE ─── */
+  @media (max-width: 640px) {
+    body { overflow: auto; height: auto; }
+    .main { flex-direction: column; overflow: visible; }
+    #map { height: 280px; flex: none; }
+    #sidebar {
+      width: 100%;
+      border-left: none;
+      border-top: 1px solid var(--border);
+      max-height: 60vh;
+    }    nav { gap: 10px; padding: 10px 14px; }
+    .logo { font-size: 15px; }
+    #searchBtn { padding: 10px 12px; font-size: 12px; }
+    .review-sheet { padding: 20px; border-radius: 16px 16px 0 0; }
+    .speed-options { gap: 6px; }
+    .speed-opt { padding: 6px 10px; font-size: 11px; }
+    .ad-banner-top { min-height: 50px; padding: 4px 10px; }
+    .adsense-slot { min-height: 50px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Wifi-<span>rating</span></div>
+  <div class="search-wrap">
+    <input id="searchInput" type="text" placeholder="Search hotels, cafes, restaurants..." />
+    <button id="searchBtn">Search</button>
+  </div>
+  <button class="gps-btn" id="gpsBtn" title="Find places near me" aria-label="Use my location">📍</button>
+  <button class="theme-btn" id="themeBtn" aria-label="Toggle theme" title="Switch Light/Dark">🌙</button>
+  <div class="lang-dropdown" id="langDropdown">
+    <div class="lang-trigger" id="langTrigger">
+      <span id="langLabel">EN</span>
+      <span class="lang-chevron">▼</span>
+    </div>
+    <div class="lang-menu" id="langMenu">
+      <button class="lang-option active" data-lang="en">
+        <span class="opt-flag">EN</span>
+        <span class="opt-label">English</span>
+        <span class="opt-check">✓</span>
+      </button>
+      <button class="lang-option" data-lang="th">
+        <span class="opt-flag">TH</span>
+        <span class="opt-label">ภาษาไทย</span>
+        <span class="opt-check">✓</span>
+      </button>
+      <!-- เพิ่มภาษาอื่นตรงนี้ได้เลย -->
+    </div>
+  </div>
+</nav>
+
+<!-- ══ AD: แถบบนสุด (Google AdSense Leaderboard) ══ -->
+<div class="ad-banner-top">
+  <span class="ad-label" id="adLabel1">Ad</span>
+  <!--
+    วิธีใส่ AdSense จริง: ลบ placeholder ด้านล่าง แล้วแทนที่ด้วย:
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXX" crossorigin="anonymous"></script>
+    <ins class="adsbygoogle adsense-slot"
+         style="display:block"
+         data-ad-client="ca-pub-XXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  -->
+  <div class="ad-top-placeholder" style="width:100%;max-width:728px;height:50px;background:rgba(0,229,255,.04);border:1px dashed rgba(0,229,255,.15);border-radius:6px;display:flex;align-items:center;justify-content:center">
+    <span style="font-size:11px;color:var(--muted);font-family:'Space Mono',monospace">[ Google AdSense — 728×90 Leaderboard ]</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div id="map">
+    <div id="googleMap"></div>
+    <div class="map-placeholder" id="mapPlaceholder">
+      <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:340px;padding:0 20px">
+        <div class="api-notice">
+          🗺️ ต้องการ <strong>Google Maps API Key</strong> เพื่อแสดงแผนที่จริง<br>
+          ใส่ key ใน <code>GOOGLE_MAPS_KEY</code> ด้านล่าง<br>
+          ตอนนี้แสดง demo mode
+        </div>
+        <p style="font-size:12px;color:var(--muted);text-align:center;position:relative">
+          แผนที่จริงจะแสดงสถานที่พร้อม<br>
+          <strong style="color:var(--accent)">marker สี</strong> ตามคะแนน WiFi ที่ผู้ใช้รีวิว
+        </p>
+      </div>
+      <!-- Demo pins (ใช้ data-id แทน inline onclick) -->
+      <div class="fake-pin pin-good" data-name="The Standard Bangkok" data-type="โรงแรม" data-id="demo-1">
+        <span class="inner">📡</span>
+        <div class="pin-tooltip">The Standard — ⭐4.5</div>
+      </div>
+      <div class="fake-pin pin-ok" data-name="True Coffee สยาม" data-type="คาเฟ่" data-id="demo-2">
+        <span class="inner">📡</span>
+        <div class="pin-tooltip">True Coffee — ⭐3.0</div>
+      </div>
+      <div class="fake-pin pin-bad" data-name="ร้านอาหารริมทาง" data-type="ร้านอาหาร" data-id="demo-3">
+        <span class="inner">📡</span>
+        <div class="pin-tooltip">ร้านริมทาง — ⭐1.5</div>
+      </div>
+      <div class="fake-pin pin-good2" data-name="Novotel Sukhumvit" data-type="โรงแรม" data-id="demo-4">
+        <span class="inner">📡</span>
+        <div class="pin-tooltip">Novotel — ⭐4.0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h2 id="sidebarTitle">📶 Nearby Places</h2>
+      <p id="sidebarSub">Search above and tap "Rate WiFi" to review</p>
+    </div>
+    <div class="results-list" id="resultsList">
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <p id="emptyText">Search for a place above<br>then select to rate its WiFi</p>
+      </div>
+    </div>
+
+    <!-- ══ AD: ด้านล่าง sidebar (Google AdSense 300×250 หรือ Affiliate) ══ -->
+    <div class="ad-sidebar-footer">
+      <span class="ad-label">โฆษณา</span>
+      <!--
+        วิธีใส่ AdSense จริง: ลบ placeholder แล้วแทนด้วย ins tag
+        หรือใส่ Affiliate banner เช่น Agoda, Booking.com, AIS/DTAC SIM
+        ตัวอย่าง Affiliate Agoda:
+        <a href="https://www.agoda.com/?cid=XXXXXXX" target="_blank" rel="noopener sponsored">
+          <img src="https://www.agoda.com/assets/partner/banner_300x250.jpg" width="300" height="90" alt="Agoda">
+        </a>
+      -->
+      <div style="width:100%;height:46px;background:rgba(0,229,255,.04);border:1px dashed rgba(0,229,255,.15);border-radius:6px;display:flex;align-items:center;justify-content:center">
+        <span style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace">[ AdSense 300×250 / Affiliate Banner ]</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW PANEL -->
+<div id="reviewPanel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="review-sheet">
+
+    <!-- HEADER: full page nav bar -->
+    <div class="sheet-header">
+      <button class="sheet-back-btn" id="backBtn">← Back</button>
+      <div class="sheet-place-big" id="sheetPlaceName">—</div>
+      <div style="width:80px"></div>
+    </div>
+
+    <!-- BODY: 2 columns -->
+    <div class="sheet-body">
+
+      <!-- LEFT: Speed test + rating -->
+      <div class="sheet-left">
+        <div class="rating-section">
+          <span class="rating-label" id="labelRating">⚡ Speed & Stability</span>
+
+          <!-- WiFi Test Widget -->
+          <div class="wifi-test-wrap" id="wifiTestWrap">
+            <div class="wifi-test-top">
+              <span class="wifi-test-label" id="labelTestWifi">🔬 Test WiFi Now</span>
+              <button class="btn-test-wifi" id="btnTestWifi">▶ Start Test</button>
+            </div>
+            <div class="signal-bars" id="signalBars">
+              <div class="signal-bar" id="bar1"></div>
+              <div class="signal-bar" id="bar2"></div>
+              <div class="signal-bar" id="bar3"></div>
+              <div class="signal-bar" id="bar4"></div>
+              <div class="signal-bar" id="bar5"></div>
+            </div>
+            <div class="wifi-test-result">
+              <div class="result-speed" id="resultSpeed">— Mbps</div>
+              <div class="result-label" id="resultLabel">Press "Start Test"<br>to measure speed</div>
+            </div>
+            <div class="result-hint" id="resultHint"></div>
+            <!-- Security Check Panel -->
+            <div class="security-panel" id="securityPanel" onclick="openSecDetail()" style="cursor:pointer" title="Tap to see full details">
+              <div class="security-title" id="securityTitle">🔒 <span id="secTitleText">Checking security...</span></div>
+              <div class="security-checks" id="securityChecks"></div>
+              <div class="security-tip" id="securityTip"></div>
+            </div>
+          </div>
+
+          <!-- Signal bar picker -->
+          <div class="star-picker" id="starPicker" role="group" aria-label="เลือกคะแนน">
+            <button class="star-btn" data-val="1" aria-label="1 ขีด">
+              <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><rect x="0" y="12" width="4" height="6" rx="1" fill="currentColor"/><rect x="6" y="8" width="4" height="10" rx="1" fill="currentColor" opacity="0.2"/><rect x="12" y="4" width="4" height="14" rx="1" fill="currentColor" opacity="0.2"/><rect x="18" y="0" width="4" height="18" rx="1" fill="currentColor" opacity="0.2"/></svg>
+            </button>
+            <button class="star-btn" data-val="2" aria-label="2 ขีด">
+              <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><rect x="0" y="12" width="4" height="6" rx="1" fill="currentColor"/><rect x="6" y="8" width="4" height="10" rx="1" fill="currentColor"/><rect x="12" y="4" width="4" height="14" rx="1" fill="currentColor" opacity="0.2"/><rect x="18" y="0" width="4" height="18" rx="1" fill="currentColor" opacity="0.2"/></svg>
+            </button>
+            <button class="star-btn" data-val="3" aria-label="3 ขีด">
+              <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><rect x="0" y="12" width="4" height="6" rx="1" fill="currentColor"/><rect x="6" y="8" width="4" height="10" rx="1" fill="currentColor"/><rect x="12" y="4" width="4" height="14" rx="1" fill="currentColor"/><rect x="18" y="0" width="4" height="18" rx="1" fill="currentColor" opacity="0.2"/></svg>
+            </button>
+            <button class="star-btn" data-val="4" aria-label="4 ขีด">
+              <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><rect x="0" y="12" width="4" height="6" rx="1" fill="currentColor"/><rect x="6" y="8" width="4" height="10" rx="1" fill="currentColor"/><rect x="12" y="4" width="4" height="14" rx="1" fill="currentColor"/><rect x="18" y="0" width="4" height="18" rx="1" fill="currentColor"/></svg>
+            </button>
+            <button class="star-btn" data-val="5" aria-label="5 ขีด">
+              <svg width="28" height="18" viewBox="0 0 28 18" fill="none"><rect x="0" y="12" width="4" height="6" rx="1" fill="currentColor"/><rect x="6" y="8" width="4" height="10" rx="1" fill="currentColor"/><rect x="12" y="4" width="4" height="14" rx="1" fill="currentColor"/><rect x="18" y="0" width="4" height="18" rx="1" fill="currentColor"/><rect x="24" y="0" width="4" height="18" rx="1" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+  <!-- RIGHT: Comment + past reviews -->
+  <div class="sheet-right">
+        <div class="comment-section">
+          <span class="rating-label" id="labelComment">💬 Your Comment</span>
+          <textarea id="commentInput" placeholder="e.g. Fast WiFi, no buffering, great for video calls..." maxlength="200"></textarea>
+          <div class="char-counter"><span id="charCount">0</span>/200</div>
+        </div>
+
+        <div id="pastReviewsWrap">
+          <div class="past-reviews-title" id="labelPastReviews">📋 Previous Reviews</div>
+          <!-- Rating Distribution Chart -->
+          <div class="rating-chart" id="ratingChart" style="display:none">
+            <div class="chart-bars" id="chartBars"></div>
+          </div>
+          <div id="pastReviewsList"></div>
+        </div>
+      </div>
+
+    </div><!-- end sheet-body -->
+
+    <!-- FOOTER -->
+    <div class="sheet-footer">
+      <button class="btn-cancel" id="cancelBtn">Cancel</button>
+      <button class="btn-submit" id="submitBtn">Submit ✓</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ══ WELCOME POPUP ══ -->
+<div id="welcomeOverlay">
+  <div class="welcome-box">
+    <div class="welcome-icon">📶</div>
+    <div class="welcome-title" id="wcTitle">Welcome to Wifi-rating</div>
+    <div class="welcome-checks">
+      <div class="welcome-check">
+        <div class="wc-icon info">ℹ</div>
+        <div id="wc1">Reviews may vary — WiFi speed at each location changes depending on the time of day and the number of users sharing the same network.</div>
+      </div>
+      <div class="welcome-check">
+        <div class="wc-icon warn">⚠</div>
+        <div id="wc2">Test results reflect your speed at that moment only — not the venue's average speed.</div>
+      </div>
+      <div class="welcome-check">
+        <div class="wc-icon shield">🔒</div>
+        <div id="wc3">Always check WiFi security before doing any banking or sensitive transactions on this network.</div>
+      </div>
+    </div>
+    <hr class="welcome-divider">
+    <button class="btn-welcome" id="btnWelcome">Got it, let's go! 🚀</button>
+    <div class="welcome-note" id="wcNote">This notice shows only on your first visit</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIG — ใส่ Google Maps API Key ตรงนี้
+// ══════════════════════════════════════════════
+const GOOGLE_MAPS_KEY = 'AIzaSyBkiW8V-YFCe0cbLbIusBZBXBmvCqifo3M'; // ← ใส่ key ของคุณ
+
+// ══════════════════════════════════════════════
+//  WELCOME POPUP
+// ══════════════════════════════════════════════
+const WELCOME_TEXT = {
+  en: {
+    title: 'Welcome to Wifi-rating 👋',
+    wc1: 'Reviews may vary — WiFi speed changes depending on the time of day and number of users sharing the same network.',
+    wc2: 'Test results reflect your speed at that moment only — not the venue\'s average speed.',
+    wc3: 'Always check WiFi security before doing any banking or sensitive transactions.',
+    btn: 'Got it, let\'s go! 🚀',
+    note: 'This notice shows only on your first visit',
+  },
+  th: {
+    title: 'ยินดีต้อนรับสู่ Wifi-rating 👋',
+    wc1: 'รีวิวอาจมีความคลาดเคลื่อน เพราะสัญญาณ WiFi ของแต่ละสถานที่อาจมีความช้าเร็วต่างกันตามช่วงเวลา หรือจำนวนคนที่ใช้ในวงเดียวกัน',
+    wc2: 'ผลการทดสอบสะท้อนความเร็วขณะนั้นเท่านั้น ไม่ใช่ค่าเฉลี่ยของสถานที่',
+    wc3: 'โปรดตรวจสอบความปลอดภัยของ WiFi ก่อนที่จะทำธุรกรรมทางการเงินหรือข้อมูลสำคัญ',
+    btn: 'เข้าใจแล้ว ไปเลย! 🚀',
+    note: 'แจ้งเตือนนี้จะแสดงเฉพาะครั้งแรกที่เข้าใช้งาน',
+  }
+};
+
+function applyWelcomeLang(lang) {
+  const w = WELCOME_TEXT[lang] || WELCOME_TEXT.en;
+  document.getElementById('wcTitle').textContent  = w.title;
+  document.getElementById('wc1').textContent      = w.wc1;
+  document.getElementById('wc2').textContent      = w.wc2;
+  document.getElementById('wc3').textContent      = w.wc3;
+  document.getElementById('btnWelcome').textContent = w.btn;
+  document.getElementById('wcNote').textContent   = w.note;
+}
+
+function closeWelcome() {
+  const el = document.getElementById('welcomeOverlay');
+  el.style.transition = 'opacity .3s ease';
+  el.style.opacity = '0';
+  setTimeout(() => { el.style.display = 'none'; }, 300);
+  localStorage.setItem('wifirate-welcomed', '1');
+}
+
+// แสดง popup เฉพาะครั้งแรก
+window.addEventListener('DOMContentLoaded', () => {
+  if (!localStorage.getItem('wifirate-welcomed')) {
+    applyWelcomeLang(currentLang || 'en');
+    document.getElementById('welcomeOverlay').style.display = 'flex';
+  } else {
+    document.getElementById('welcomeOverlay').style.display = 'none';
+  }
+});
+
+document.getElementById('btnWelcome').addEventListener('click', closeWelcome);
+
+// ──── Char Counter ────
+document.addEventListener('DOMContentLoaded', () => {
+  const textarea = document.getElementById('commentInput');
+  const counter  = document.getElementById('charCount');
+  const wrap     = textarea?.nextElementSibling;
+  if (!textarea || !counter) return;
+  textarea.addEventListener('input', () => {
+    const len = textarea.value.length;
+    counter.textContent = len;
+    if (wrap) {
+      wrap.className = 'char-counter' +
+        (len >= 200 ? ' limit' : len >= 160 ? ' warn' : '');
+    }
+  });
+});
+
+// ══════════════════════════════════════════════
+//  THEME — Light / Dark
+// ══════════════════════════════════════════════
+(function() {
+  const saved = localStorage.getItem('wifirate-theme');
+  if (saved === 'light') document.body.classList.add('light');
+})();
+
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('wifirate-theme', isLight ? 'light' : 'dark');
+  document.getElementById('themeBtn').textContent = isLight ? '☀️' : '🌙';
+  // อัปเดต icon ให้ตรงกับ state ตอน load
+  if (map) {
+    // refresh map style ถ้า Google Maps โหลดแล้ว
+    map.setOptions({ styles: getMapStyles() });
+  }
+}
+
+function getMapStyles() {
+  // แผนที่สีขาวตลอด ไม่เปลี่ยนตาม dark/light mode
+  const sharedPOI = [
+    { featureType: 'transit', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+    { featureType: 'poi.place_of_worship', elementType: 'all', stylers: [{ visibility: 'off' }] },
+    { featureType: 'poi.park', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'poi.business',       elementType: 'labels', stylers: [{ visibility: 'on' }] },
+    { featureType: 'poi.school',         elementType: 'labels', stylers: [{ visibility: 'on' }] },
+    { featureType: 'poi.medical',        elementType: 'labels', stylers: [{ visibility: 'on' }] },
+    { featureType: 'poi.government',     elementType: 'labels', stylers: [{ visibility: 'on' }] },
+    { featureType: 'poi.attraction',     elementType: 'labels', stylers: [{ visibility: 'on' }] },
+    { featureType: 'poi.sports_complex', elementType: 'labels', stylers: [{ visibility: 'on' }] },
+  ];
+
+  return [
+    { elementType: 'geometry',           stylers: [{ color: '#f8f9fa' }] },
+    { elementType: 'labels.text.fill',   stylers: [{ color: '#3c4043' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
+    { featureType: 'road',               elementType: 'geometry',        stylers: [{ color: '#ffffff' }] },
+    { featureType: 'road',               elementType: 'geometry.stroke', stylers: [{ color: '#dadce0' }] },
+    { featureType: 'road.highway',       elementType: 'geometry',        stylers: [{ color: '#f2d96e' }] },
+    { featureType: 'road.highway',       elementType: 'geometry.stroke', stylers: [{ color: '#e8c94e' }] },
+    { featureType: 'water',              elementType: 'geometry',        stylers: [{ color: '#c8dff0' }] },
+    { featureType: 'water',              elementType: 'labels.text.fill',stylers: [{ color: '#5d8aab' }] },
+    { featureType: 'poi',                elementType: 'geometry',        stylers: [{ color: '#eeeeee' }] },
+    { featureType: 'poi.park',           elementType: 'geometry',        stylers: [{ color: '#d4edda' }] },
+    { featureType: 'landscape.natural',  elementType: 'geometry',        stylers: [{ color: '#e8f5e9' }] },
+    { featureType: 'administrative',     elementType: 'geometry.stroke', stylers: [{ color: '#c0c0c0' }] },
+    ...sharedPOI,
+  ];
+}
+
+document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+
+// ตั้ง icon ให้ตรงกับ theme ที่ save ไว้
+document.getElementById('themeBtn').textContent =
+  document.body.classList.contains('light') ? '☀️' : '🌙';
+// ══════════════════════════════════════════════
+const LANGS = {
+  en: {
+    searchPlaceholder : 'Search hotels, cafes, restaurants...',
+    searchBtn         : 'Search',
+    sidebarTitle      : '📶 Nearby Places',
+    sidebarSub        : 'Search above and tap "Rate WiFi" to review',
+    emptyText         : 'Search for a place above\nthen select to rate its WiFi',
+    adLabel           : 'Ad',
+    sheetTitle        : '📶 Rate WiFi',
+    labelRating       : '⚡ Speed & Stability',
+    labelTestWifi     : '🔬 Test WiFi Now',
+    btnTestStart      : '▶ Start Test',
+    btnTestRetry      : '↺ Test Again',
+    btnTesting        : '⏳ Testing...',
+    resultDefault     : 'Press "Start Test"\nto measure speed',
+    resultNoNet       : 'Could not measure',
+    resultNoNetSub    : 'Please select manually',
+    resultNoNetHint   : '(Check your connection and try again)',
+    labelSpeed        : '💨 Estimated Speed',
+    labelComment      : '💬 Comment',
+    commentPlaceholder: 'e.g. Fast WiFi, no buffering, great for video calls...',
+    cancelBtn         : 'Cancel',
+    submitBtn         : 'Submit ✓',
+    reviewBtn         : '+ Rate WiFi',
+    toastSaved        : '✓ Review saved!',
+    toastRateLimit    : '⏳ You just reviewed this place. Please wait 5 minutes.',
+    toastNoStar       : '⚠️ Please select a signal rating first!',
+    toastNoSpeed      : '⚠️ Please select an estimated speed!',
+    toastTestDone     : (mbps, level) => `📶 ${mbps} Mbps — Auto-selected ${level} bar${level>1?'s':''}!`,
+    speedLabels       : { 1:'Very Slow 🐢', 2:'Slow 🚶', 3:'OK 🏃', 4:'Fast 🚗', 5:'Excellent 🚀' },
+    speedHints        : {
+      1:'Barely usable — ask staff to fix it',
+      2:'Browsing OK, videos may buffer',
+      3:'HD streaming possible, may stutter',
+      4:'Smooth for most tasks',
+      5:'4K / Video calls — no issues',
+    },
+    noReviews         : 'No reviews yet',
+    reviews           : (n) => `${n} review${n>1?'s':''}`,
+    demoTypes         : { hotel:'Hotel', cafe:'Café', restaurant:'Restaurant' },
+    demoSuffix        : ['(Siam Branch)', '(Asok Branch)', '(Sukhumvit Branch)'],
+  },
+  th: {
+    searchPlaceholder : 'ค้นหาโรงแรม, คาเฟ่, ร้านอาหาร...',
+    searchBtn         : 'ค้นหา',
+    sidebarTitle      : '📶 สถานที่ใกล้เคียง',
+    sidebarSub        : 'ค้นหาแล้วกด "รีวิว WiFi" เพื่อให้คะแนน',
+    emptyText         : 'ค้นหาสถานที่ด้านบน\nแล้วเลือกเพื่อรีวิว WiFi',
+    adLabel           : 'โฆษณา',
+    sheetTitle        : '📶 รีวิว WiFi',
+    labelRating       : '⚡ ความเร็ว & เสถียร',
+    labelTestWifi     : '🔬 ทดสอบ WiFi ตอนนี้',
+    btnTestStart      : '▶ เริ่มทดสอบ',
+    btnTestRetry      : '↺ ทดสอบใหม่',
+    btnTesting        : '⏳ กำลังทดสอบ...',
+    resultDefault     : 'กด "เริ่มทดสอบ"\nเพื่อวัดความเร็ว',
+    resultNoNet       : 'วัดไม่ได้',
+    resultNoNetSub    : 'กรุณาเลือกคะแนนเอง',
+    resultNoNetHint   : '(อาจเกิดจาก network หรือ offline)',
+    labelSpeed        : '💨 ความเร็วโดยประมาณ',
+    labelComment      : '💬 ความคิดเห็น',
+    commentPlaceholder: 'เช่น: WiFi ใช้ได้ดี สตรีมได้ ไม่กระตุก...',
+    cancelBtn         : 'ยกเลิก',
+    submitBtn         : 'ส่งรีวิว ✓',
+    reviewBtn         : '+ รีวิว WiFi',
+    toastSaved        : '✓ บันทึกรีวิวแล้ว!',
+    toastRateLimit    : '⏳ คุณเพิ่งรีวิวสถานที่นี้ไปแล้ว กรุณารอ 5 นาที',
+    toastNoStar       : '⚠️ กรุณาเลือกคะแนนก่อนนะ!',
+    toastNoSpeed      : '⚠️ กรุณาเลือกความเร็ว WiFi ด้วยนะ!',
+    toastTestDone     : (mbps, level) => `📶 วัดได้ ${mbps} Mbps — เลือก ${level} ขีดให้แล้ว!`,
+    speedLabels       : { 1:'ช้ามาก 🐢', 2:'ช้านิดหน่อย 🚶', 3:'พอใช้ 🏃', 4:'ดีมาก 🚗', 5:'ยอดเยี่ยม 🚀' },
+    speedHints        : {
+      1:'แทบใช้ไม่ได้ ควรแจ้งร้านให้แก้',
+      2:'เปิดเว็บได้ แต่วิดีโอกระตุก',
+      3:'สตรีม HD ได้ แต่อาจกระตุกบ้าง',
+      4:'ใช้งานได้สบาย ทุกอย่างลื่น',
+      5:'สตรีม 4K / Video call ลื่นมาก',
+    },
+    noReviews         : 'ยังไม่มีรีวิว',
+    reviews           : (n) => `${n} รีวิว`,
+    demoTypes         : { hotel:'โรงแรม', cafe:'คาเฟ่', restaurant:'ร้านอาหาร' },
+    demoSuffix        : ['(สาขาสยาม)', '(สาขาอโศก)', '(สาขาสุขุมวิท)'],
+  }
+};
+
+let currentLang = 'en';
+function t(key, ...args) {
+  const val = LANGS[currentLang][key];
+  return typeof val === 'function' ? val(...args) : val;
+}
+
+function applyLang() {
+  const L = LANGS[currentLang];
+  const isEN = currentLang === 'en';
+
+  // nav
+  document.getElementById('searchInput').placeholder = L.searchPlaceholder;
+  document.getElementById('searchBtn').textContent   = L.searchBtn;
+  document.getElementById('gpsBtn').title = currentLang === 'en' ? 'Find places near me' : 'ค้นหาสถานที่ใกล้ฉัน';
+
+  // sidebar
+  document.getElementById('sidebarTitle').textContent = L.sidebarTitle;
+  document.getElementById('sidebarSub').textContent   = L.sidebarSub;
+  document.getElementById('emptyText').innerHTML      = L.emptyText.replace('\n','<br>');
+
+  // ads
+  document.querySelectorAll('.ad-label').forEach(el => el.textContent = L.adLabel);
+
+  // review panel header — place name stays as-is (set by openReview)
+
+  // review panel left
+  document.getElementById('labelRating').textContent   = L.labelRating;
+  document.getElementById('labelTestWifi').textContent = L.labelTestWifi;
+  document.getElementById('labelSpeed').textContent    = L.labelSpeed;
+  const testBtn = document.getElementById('btnTestWifi');
+  if (!testBtn.disabled) testBtn.textContent = L.btnTestStart;
+  const rl = document.getElementById('resultLabel');
+  if (rl.dataset.state === 'default' || !rl.dataset.state) {
+    rl.innerHTML = L.resultDefault.replace('\n','<br>');
+  }
+
+  // review panel right
+  document.getElementById('labelComment').textContent  = L.labelComment;
+  document.getElementById('commentInput').placeholder  = L.commentPlaceholder;
+  document.getElementById('labelPastReviews').textContent = isEN ? '📋 Previous Reviews' : '📋 รีวิวก่อนหน้า';
+
+  // action buttons
+  document.getElementById('cancelBtn').textContent = L.cancelBtn;
+  document.getElementById('backBtn').textContent   = currentLang === 'en' ? '← Back' : '← กลับ';
+  document.getElementById('submitBtn').textContent = L.submitBtn;
+
+  // re-render past reviews if panel is open
+  if (document.getElementById('reviewPanel').classList.contains('open') && currentPlace) {
+    renderPastReviews(currentPlace.id);
+  }
+
+  // อัปเดตภาษาใน welcome popup ด้วย (ถ้ายังแสดงอยู่)
+  if (document.getElementById('welcomeOverlay').style.display !== 'none') {
+    applyWelcomeLang(currentLang);
+  }
+
+  // re-render results list
+  if (document.querySelectorAll('.place-card').length) doSearch();
+}
+
+const LANG_META = {
+  en: { flag:'🇬🇧', label:'EN' },
+  th: { flag:'🇹🇭', label:'TH' },
+};
+
+const langTrigger = document.getElementById('langTrigger');
+const langMenu    = document.getElementById('langMenu');
+
+langTrigger.addEventListener('click', (e) => {
+  e.stopPropagation();
+  langTrigger.classList.toggle('open');
+  langMenu.classList.toggle('open');
+});
+
+document.addEventListener('click', () => {
+  langTrigger.classList.remove('open');
+  langMenu.classList.remove('open');
+});
+
+langMenu.querySelectorAll('.lang-option').forEach(opt => {
+  opt.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const lang = opt.dataset.lang;
+    currentLang = lang;
+    document.getElementById('langLabel').textContent = LANG_META[lang].label;
+    langMenu.querySelectorAll('.lang-option').forEach(o => o.classList.toggle('active', o.dataset.lang === lang));
+    langTrigger.classList.remove('open');
+    langMenu.classList.remove('open');
+    applyLang();
+  });
+});
+
+// ──── Sanitize helper (แก้ปัญหา XSS) ────
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
+}
+
+// ──── Local storage data store ────
+function getReviews() {
+  try { return JSON.parse(localStorage.getItem('wifireviews') || '{}'); } catch { return {}; }
+}
+function saveReview(placeId, data) {
+  // Rate limit: ป้องกันรีวิวซ้ำภายใน 5 นาที
+  const all = getReviews();
+  if (!all[placeId]) all[placeId] = [];
+  const last = all[placeId][all[placeId].length - 1];
+  if (last && Date.now() - last.ts < 5 * 60 * 1000) {
+    showToast(t('toastRateLimit'));
+    return false;
+  }
+  all[placeId].push(data);
+  localStorage.setItem('wifireviews', JSON.stringify(all));
+  return true;
+}
+function getPlaceScore(placeId) {
+  const reviews = getReviews()[placeId] || [];
+  if (!reviews.length) return null;
+  const avg = reviews.reduce((s, r) => s + r.stars, 0) / reviews.length;
+  return { avg: avg.toFixed(1), count: reviews.length, speed: reviews[reviews.length-1]?.speed };
+}
+
+// ──── State ────
+let currentPlace = null;
+let selectedStar = 0;
+let selectedSpeed = '';
+let map = null;
+let placesService = null;
+let markers = [];
+
+// ──── ปรับ results-list ให้โชว์พอดี 2 card ────
+function fitSidebarToTwoCards() {
+  const list = document.getElementById('resultsList');
+  const cards = list.querySelectorAll('.place-card');
+  if (cards.length < 2) return;
+  // วัดความสูงของ 2 card แรก + gap
+  const c1 = cards[0].getBoundingClientRect().height;
+  const c2 = cards[1].getBoundingClientRect().height;
+  const gap = 12;
+  const padding = 28; // padding top+bottom ของ results-list
+  list.style.maxHeight = (c1 + c2 + gap + padding) + 'px';
+  list.style.overflowY = 'auto';
+}
+
+// ══════════════════════════════════════════════
+//  GPS — Geolocation
+// ══════════════════════════════════════════════
+let myLocationMarker = null;
+let myLocationCircle = null;
+
+function requestGPS() {
+  const btn = document.getElementById('gpsBtn');
+  const isEN = currentLang === 'en';
+
+  if (!navigator.geolocation) {
+    showToast(isEN ? '❌ GPS not supported on this browser' : '❌ เบราว์เซอร์นี้ไม่รองรับ GPS');
+    return;
+  }
+
+  btn.classList.add('locating');
+  btn.textContent = '⏳';
+  showToast(isEN ? '📍 Getting your location...' : '📍 กำลังหาตำแหน่งของคุณ...');
+
+  navigator.geolocation.getCurrentPosition(
+    // ✅ สำเร็จ
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = pos.coords.accuracy; // ความแม่นยำ (เมตร)
+
+      btn.classList.remove('locating');
+      btn.classList.add('located');
+      btn.textContent = '📍';
+
+      showToast(isEN
+        ? `✅ Found you! Accuracy ±${Math.round(acc)}m`
+        : `✅ เจอตำแหน่งแล้ว! ความแม่นยำ ±${Math.round(acc)} เมตร`);
+
+      if (map) {
+        // เลื่อนแมพไปที่ตำแหน่งผู้ใช้
+        map.panTo({ lat, lng });
+        map.setZoom(15);
+
+        // ลบ marker เดิมถ้ามี
+        if (myLocationMarker) myLocationMarker.setMap(null);
+        if (myLocationCircle)  myLocationCircle.setMap(null);
+
+        // วาง dot ตำแหน่งตัวเอง (สีน้ำเงิน Google style)
+        myLocationMarker = new google.maps.Marker({
+          position: { lat, lng },
+          map,
+          title: isEN ? 'You are here' : 'ตำแหน่งของคุณ',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#4285f4',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 3,
+          },
+          zIndex: 999,
+        });
+
+        // วงกลมแสดงความแม่นยำ
+        myLocationCircle = new google.maps.Circle({
+          map,
+          center: { lat, lng },
+          radius: acc,
+          fillColor: '#4285f4',
+          fillOpacity: 0.08,
+          strokeColor: '#4285f4',
+          strokeOpacity: 0.3,
+          strokeWeight: 1,
+        });
+
+        // Auto-search คาเฟ่ โรงแรม ร้านอาหารใกล้เคียง
+        const nearbyQuery = isEN ? 'cafe hotel restaurant near me' : 'คาเฟ่ โรงแรม ร้านอาหาร ใกล้ฉัน';
+        placesService.nearbySearch({
+          location: { lat, lng },
+          radius: 1000,
+          type: ['cafe', 'restaurant', 'lodging', 'shopping_mall'],
+        }, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results.length) {
+            clearMarkers();
+            renderResults(results.slice(0, 10).map(p => ({
+              id: p.place_id,
+              name: p.name,
+              type: p.types?.[0]?.replace(/_/g, ' ') || 'place',
+              lat: p.geometry.location.lat(),
+              lng: p.geometry.location.lng(),
+              address: p.vicinity,
+              real: true,
+            })));
+            // อัปเดต sidebar header
+            document.getElementById('sidebarTitle').textContent =
+              isEN ? '📶 Nearby Places' : '📶 สถานที่ใกล้คุณ';
+          }
+        });
+
+      } else {
+        // Demo mode — ไม่มี Maps API แต่ยังเก็บ lat/lng ไว้
+        showToast(isEN
+          ? `📍 Your location: ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+          : `📍 ตำแหน่งคุณ: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+      }
+    },
+
+    // ❌ error
+    (err) => {
+      btn.classList.remove('locating');
+      btn.textContent = '📍';
+      const isEN = currentLang === 'en';
+      let msg;
+      switch (err.code) {
+        case err.PERMISSION_DENIED:
+          msg = isEN
+            ? '🔒 Location access denied. Please allow in browser settings.'
+            : '🔒 ไม่ได้รับอนุญาต กรุณาเปิดสิทธิ์ตำแหน่งในการตั้งค่าเบราว์เซอร์';
+          break;
+        case err.POSITION_UNAVAILABLE:
+          msg = isEN ? '❌ Location unavailable' : '❌ ไม่สามารถระบุตำแหน่งได้';
+          break;
+        case err.TIMEOUT:
+          msg = isEN ? '⏱ Location request timed out' : '⏱ หมดเวลารอสัญญาณ GPS';
+          break;
+        default:
+          msg = isEN ? '❌ GPS error' : '❌ เกิดข้อผิดพลาด GPS';
+      }
+      showToast(msg);
+    },
+
+    // options
+    {
+      enableHighAccuracy: true,  // ใช้ GPS จริง ไม่ใช้แค่ WiFi triangulation
+      timeout: 10000,            // รอสูงสุด 10 วินาที
+      maximumAge: 60000,         // ใช้ cache ได้ถ้าไม่เกิน 1 นาที
+    }
+  );
+}
+
+document.getElementById('gpsBtn').addEventListener('click', requestGPS);
+function initMap() {
+  if (!GOOGLE_MAPS_KEY) return;
+  map = new google.maps.Map(document.getElementById('googleMap'), {
+    center: { lat: 13.7563, lng: 100.5018 },
+    zoom: 14,
+    styles: getMapStyles()
+  });
+  document.getElementById('googleMap').style.display = 'block';
+  document.getElementById('mapPlaceholder').style.display = 'none';
+  placesService = new google.maps.places.PlacesService(map);
+}
+
+// ──── Search ────
+document.getElementById('searchBtn').addEventListener('click', doSearch);
+document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+
+  if (map && placesService) {
+    placesService.textSearch({ query: q, location: map.getCenter(), radius: 5000 }, (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK) {
+        clearMarkers();
+        renderResults(results.slice(0, 8).map(p => ({
+          id: p.place_id,
+          name: p.name,
+          type: p.types?.[0]?.replace(/_/g,' ') || 'place',
+          lat: p.geometry.location.lat(),
+          lng: p.geometry.location.lng(),
+          address: p.formatted_address,
+          real: true
+        })));
+      }
+    });
+  } else {
+    const sfx = t('demoSuffix');
+    const demoPlaces = [
+      { id:'d1', name: q + ' ' + sfx[0], type: t('demoTypes').hotel,      lat:13.7463, lng:100.5347 },
+      { id:'d2', name: q + ' ' + sfx[1], type: t('demoTypes').cafe,       lat:13.7367, lng:100.5608 },
+      { id:'d3', name: q + ' ' + sfx[2], type: t('demoTypes').restaurant, lat:13.7310, lng:100.5690 },
+    ];
+    renderResults(demoPlaces);
+  }
+}
+
+function clearMarkers() {
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+}
+
+// ──── Native Ad Cards (แทรกในรายการ กลมกลืน ไม่รบกวน) ────
+// เปลี่ยน href, title, desc ให้ตรงกับ affiliate ของคุณ
+const NATIVE_ADS = [
+  {
+    href: 'https://www.agoda.com/?cid=XXXXXXX',         // ← ใส่ Agoda affiliate link
+    icon: '🏨',
+    title: 'จองโรงแรมถูกที่สุดกับ Agoda',
+    desc: 'WiFi ฟรี + ยกเลิกได้ฟรี เริ่มต้น ฿399/คืน',
+    cta: 'ดูโปรโมชัน →',
+    tag: 'พาร์ทเนอร์'
+  },
+  {
+    href: 'https://www.booking.com/?aid=XXXXXXX',       // ← ใส่ Booking.com affiliate link
+    icon: '📡',
+    title: 'eSIM ท่องเที่ยว ไม่ต้องหา WiFi',
+    desc: 'อินเทอร์เน็ตไม่จำกัด 190+ ประเทศ เริ่ม ฿199',
+    cta: 'เลือกแพ็กเกจ →',
+    tag: 'พาร์ทเนอร์'
+  },
+  {
+    href: 'https://www.lazada.co.th/?aff=XXXXXXX',      // ← ใส่ Lazada affiliate link
+    icon: '📶',
+    title: 'Router พกพา แรง ทุกที่',
+    desc: 'Pocket WiFi 4G/5G รีวิวดี ราคาเริ่มต้น ฿890',
+    cta: 'ดูสินค้า →',
+    tag: 'พาร์ทเนอร์'
+  }
+];
+
+function createNativeAdCard(ad) {
+  const a = document.createElement('a');
+  a.className = 'ad-native-card';
+  a.href = ad.href;
+  a.target = '_blank';
+  a.rel = 'noopener sponsored';
+
+  const badge = document.createElement('span');
+  badge.className = 'ad-native-badge';
+  badge.textContent = ad.tag;
+
+  const title = document.createElement('div');
+  title.className = 'ad-native-title';
+  title.textContent = ad.title;
+
+  const desc = document.createElement('div');
+  desc.className = 'ad-native-desc';
+  desc.textContent = ad.desc;
+
+  const cta = document.createElement('span');
+  cta.className = 'ad-native-cta';
+  cta.textContent = ad.cta;
+
+  const icon = document.createElement('span');
+  icon.className = 'ad-native-icon';
+  icon.textContent = ad.icon;
+  icon.setAttribute('aria-hidden', 'true');
+
+  a.appendChild(badge);
+  a.appendChild(title);
+  a.appendChild(desc);
+  a.appendChild(cta);
+  a.appendChild(icon);
+  return a;
+}
+
+// ──── Render Results (แก้ปัญหา XSS ด้วย DOM API แทน innerHTML) ────
+function renderResults(places) {
+  const list = document.getElementById('resultsList');
+  list.innerHTML = '';
+  places.forEach((place, i) => {
+    const score = getPlaceScore(place.id);
+    const stars = score ? parseFloat(score.avg) : null;
+    const color = stars ? (stars >= 4 ? '#00ff9d' : stars >= 2.5 ? '#ffd600' : '#ff4d6d') : '#64748b';
+
+    const card = document.createElement('div');
+    card.className = 'place-card';
+    card.style.animationDelay = (i * 0.06) + 's';
+
+    // ใช้ textContent แทน innerHTML เพื่อป้องกัน XSS
+    const nameEl = document.createElement('div');
+    nameEl.className = 'place-name';
+    nameEl.textContent = place.name;
+
+    const typeEl = document.createElement('div');
+    typeEl.className = 'place-type';
+    typeEl.textContent = place.type + (place.address ? ' • ' + place.address.split(',')[0] : '');
+
+    const scoreRow = document.createElement('div');
+    scoreRow.className = 'wifi-score-row';
+    scoreRow.innerHTML = `
+      <span class="wifi-label">WiFi Score</span>
+      <div class="stars-display">${renderStars(stars)}</div>
+      <span class="review-count">${score ? t('reviews', score.count) : t('noReviews')}</span>
+    `;
+
+    card.appendChild(nameEl);
+    card.appendChild(typeEl);
+    card.appendChild(scoreRow);
+
+    if (score) {
+      const barWrap = document.createElement('div');
+      barWrap.className = 'speed-bar';
+      barWrap.innerHTML = `<div class="speed-fill" style="width:${(parseFloat(score.avg)/5)*100}%;background:${color}"></div>`;
+      const meta = document.createElement('div');
+      meta.className = 'speed-meta';
+      const sp = document.createElement('span');
+      sp.textContent = score.speed || '—';
+      const sc = document.createElement('span');
+      sc.textContent = score.avg + '/5';
+      meta.appendChild(sp);
+      meta.appendChild(sc);
+      card.appendChild(barWrap);
+      card.appendChild(meta);
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'review-btn';
+    btn.textContent = t('reviewBtn');
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openReview({ name: place.name, type: place.type, id: place.id });
+    });
+    card.appendChild(btn);
+
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.place-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      if (map && place.lat) map.panTo({ lat: place.lat, lng: place.lng });
+    });
+    list.appendChild(card);
+
+    // แทรก Native Ad หลังการ์ดที่ 2 (index 1) และ 5 (index 4)
+    if (i === 1 || i === 4) {
+      const adIdx = i === 1 ? 0 : (i === 4 ? 1 : 2);
+      const ad = NATIVE_ADS[adIdx % NATIVE_ADS.length];
+      list.appendChild(createNativeAdCard(ad));
+    }
+
+    if (map && place.lat) {
+      const marker = new google.maps.Marker({
+        position: { lat: place.lat, lng: place.lng },
+        map,
+        title: place.name,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: color,
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 2,
+        },
+        label: { text: stars ? score.avg : '?', color: '#000', fontSize: '9px', fontWeight: 'bold' }
+      });
+      marker.addListener('click', () => openReview(place));
+      markers.push(marker);
+    }
+  });
+  requestAnimationFrame(() => requestAnimationFrame(() => fitSidebarToTwoCards()));
+}
+
+function renderStars(score) {
+  const s = score || 0;
+  return [1,2,3,4,5].map(i =>
+    `<div class="star-icon ${i <= Math.round(s) ? 'star-on' : 'star-off'}">${i <= Math.round(s) ? '★' : '☆'}</div>`
+  ).join('');
+}
+
+// ──── WiFi Security Check (animate ทีละรายการ) ────
+async function runSecurityCheck() {
+  const titleSpan = document.getElementById('secTitleText');
+  const checksEl  = document.getElementById('securityChecks');
+  const tipEl     = document.getElementById('securityTip');
+  const isEN      = currentLang === 'en';
+
+  checksEl.innerHTML = '';
+  tipEl.className    = 'security-tip';
+  tipEl.style.display = 'none';
+  titleSpan.textContent = isEN ? 'Checking security...' : 'กำลังตรวจสอบ...';
+
+  // helper: สร้าง row แล้ว animate
+  function makeRow(labelText) {
+    const item = document.createElement('div');
+    item.className = 'sec-item';
+    const icon = document.createElement('div');
+    icon.className = 'sec-icon loading';
+    icon.textContent = '↻';
+    const text = document.createElement('div');
+    text.className = 'sec-text';
+    text.textContent = labelText;
+    item.appendChild(icon); item.appendChild(text);
+    checksEl.appendChild(item);
+    // trigger animation
+    requestAnimationFrame(() => requestAnimationFrame(() => item.classList.add('visible')));
+    return { item, icon, text };
+  }
+
+  function finishRow(row, level, labelDone) {
+    row.icon.className = `sec-icon ${level}`;
+    row.icon.textContent = level === 'pass' ? '✓' : level === 'fail' ? '✕' : '!';
+    row.text.textContent = labelDone;
+    row.text.className = 'sec-text done';
+  }
+
+  const checks = [
+    { label: isEN ? 'HTTPS Encryption' : 'การเชื่อมต่อ HTTPS' },
+    { label: isEN ? 'DNS Check'        : 'ตรวจ DNS' },
+    { label: isEN ? 'Captive Portal'   : 'Captive Portal' },
+    { label: isEN ? 'Mixed Content'    : 'Mixed Content' },
+    { label: isEN ? 'IP Leak'          : 'IP Leak' },
+  ];
+
+  const rows = checks.map(c => makeRow(c.label));
+  const results = [];
+
+  // ── 1. HTTPS ──
+  await new Promise(r => setTimeout(r, 300));
+  const isHttps = location.protocol === 'https:' || location.hostname === 'localhost';
+  results.push(isHttps ? 'pass' : 'warn');
+  finishRow(rows[0], isHttps ? 'pass' : 'warn',
+    isHttps ? (isEN ? 'HTTPS ✓' : 'HTTPS ✓') : (isEN ? 'No HTTPS' : 'ไม่มี HTTPS'));
+
+  // ── 2. DNS ──
+  await new Promise(r => setTimeout(r, 200));
+  let dnsOk = false;
+  try {
+    const r = await fetch('https://dns.google/resolve?name=example.com&type=A', { cache:'no-store', signal: AbortSignal.timeout(4000) });
+    dnsOk = r.ok;
+  } catch { dnsOk = false; }
+  results.push(dnsOk ? 'pass' : 'warn');
+  finishRow(rows[1], dnsOk ? 'pass' : 'warn',
+    dnsOk ? (isEN ? 'DNS OK' : 'DNS ปกติ') : (isEN ? 'DNS blocked?' : 'DNS อาจถูก block'));
+
+  // ── 3. Captive Portal ──
+  await new Promise(r => setTimeout(r, 200));
+  let noCaptive = false;
+  try {
+    await fetch('https://connectivitycheck.gstatic.com/generate_204', { cache:'no-store', mode:'no-cors', signal: AbortSignal.timeout(3000) });
+    noCaptive = true;
+  } catch { noCaptive = false; }
+  results.push(noCaptive ? 'pass' : 'warn');
+  finishRow(rows[2], noCaptive ? 'pass' : 'warn',
+    noCaptive ? (isEN ? 'No forced login' : 'ไม่มี login บังคับ') : (isEN ? 'Login page detected' : 'พบหน้า login'));
+
+  // ── 4. Mixed Content ──
+  await new Promise(r => setTimeout(r, 150));
+  const safe4 = isHttps;
+  results.push(safe4 ? 'pass' : 'fail');
+  finishRow(rows[3], safe4 ? 'pass' : 'fail',
+    safe4 ? (isEN ? 'Secure context' : 'Context ปลอดภัย') : (isEN ? 'Insecure resources' : 'Resource ไม่ปลอดภัย'));
+
+  // ── 5. IP Leak ──
+  await new Promise(r => setTimeout(r, 150));
+  let localIP = null;
+  try {
+    await new Promise((resolve) => {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel('');
+      pc.createOffer().then(o => pc.setLocalDescription(o));
+      pc.onicecandidate = e => {
+        if (!e || !e.candidate) { pc.close(); resolve(); return; }
+        const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (m && !m[1].startsWith('0.')) { localIP = m[1]; pc.close(); resolve(); }
+      };
+      setTimeout(() => { pc.close(); resolve(); }, 1500);
+    });
+  } catch { /* WebRTC N/A */ }
+  const isPrivate = localIP ? /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(localIP) : true;
+  results.push(isPrivate ? 'pass' : 'warn');
+  finishRow(rows[4], isPrivate ? 'pass' : 'warn',
+    isPrivate ? (isEN ? 'No IP leak' : 'IP ไม่รั่ว') : (isEN ? `IP ${localIP} exposed` : `IP ${localIP} อาจรั่ว`));
+
+  // ── สรุปผล ──
+  await new Promise(r => setTimeout(r, 300));
+  const failCount = results.filter(r => r === 'fail').length;
+  const warnCount = results.filter(r => r === 'warn').length;
+  const passCount = results.filter(r => r === 'pass').length;
+
+  let level;
+  if (failCount > 0)       level = 'danger';
+  else if (warnCount >= 2) level = 'caution';
+  else                     level = 'safe';
+
+  // ซ่อน checklist แล้วแสดงแค่ผลสรุป
+  checksEl.style.transition = 'opacity .3s';
+  checksEl.style.opacity = '0';
+  await new Promise(r => setTimeout(r, 300));
+  checksEl.style.display = 'none';
+
+  // เก็บ detail ไว้ให้ popup ใช้
+  const DETAIL_DESC = {
+    en: [
+      { label: 'HTTPS Encryption',  pass: isHttps,    level: isHttps ? 'pass' : 'warn',
+        desc: isHttps ? 'Your connection is encrypted end-to-end. Data sent over this network is protected.' : 'This page is not on HTTPS. Data you send may be visible to others on the same network.' },
+      { label: 'DNS Resolution',    pass: dnsOk,      level: dnsOk ? 'pass' : 'warn',
+        desc: dnsOk ? 'DNS resolves normally. No obvious hijacking or blocking detected.' : 'DNS check failed. The network may be filtering or redirecting your requests.' },
+      { label: 'Captive Portal',    pass: noCaptive,  level: noCaptive ? 'pass' : 'warn',
+        desc: noCaptive ? 'No forced login page detected. Network allows direct access.' : 'A login/redirect page was detected. Common on hotel and café WiFi.' },
+      { label: 'Mixed Content',     pass: safe4,      level: safe4 ? 'pass' : 'fail',
+        desc: safe4 ? 'Secure context. Resources are loaded safely.' : 'This page loads over HTTP. Insecure resources may expose your data.' },
+      { label: 'IP Leak (WebRTC)',  pass: isPrivate,  level: isPrivate ? 'pass' : 'warn',
+        desc: isPrivate ? (localIP ? `Local IP ${localIP} is private — normal.` : 'No IP detected via WebRTC.') : `IP ${localIP} may be exposed to websites via WebRTC.` },
+    ],
+    th: [
+      { label: 'การเชื่อมต่อ HTTPS', pass: isHttps, level: isHttps ? 'pass' : 'warn',
+        desc: isHttps ? 'การเชื่อมต่อเข้ารหัสแล้ว ข้อมูลที่ส่งผ่านเครือข่ายนี้ได้รับการปกป้อง' : 'หน้าเว็บนี้ไม่ได้ใช้ HTTPS ข้อมูลที่ส่งอาจถูกดักอ่านได้' },
+      { label: 'ตรวจสอบ DNS',       pass: dnsOk,   level: dnsOk ? 'pass' : 'warn',
+        desc: dnsOk ? 'DNS ทำงานปกติ ไม่พบการ hijack หรือ block' : 'DNS ไม่ตอบสนอง อาจถูก filter หรือ redirect' },
+      { label: 'Captive Portal',    pass: noCaptive, level: noCaptive ? 'pass' : 'warn',
+        desc: noCaptive ? 'ไม่มีหน้า login บังคับ เครือข่ายเปิดตรง' : 'พบหน้า login บังคับ พบบ่อยใน WiFi โรงแรมและคาเฟ่' },
+      { label: 'Mixed Content',     pass: safe4,    level: safe4 ? 'pass' : 'fail',
+        desc: safe4 ? 'Context ปลอดภัย โหลด resource อย่างปลอดภัย' : 'หน้าเว็บใช้ HTTP อาจโหลด resource ที่ไม่ปลอดภัย' },
+      { label: 'IP Leak (WebRTC)',  pass: isPrivate, level: isPrivate ? 'pass' : 'warn',
+        desc: isPrivate ? (localIP ? `Local IP ${localIP} เป็น private — ปกติ` : 'ไม่พบ IP รั่วผ่าน WebRTC') : `IP ${localIP} อาจถูกเปิดเผยผ่าน WebRTC` },
+    ],
+  };
+  window._secDetails = DETAIL_DESC[isEN ? 'en' : 'th'];
+  _secLastResults = DETAIL_DESC[isEN ? 'en' : 'th'];
+
+  if (level === 'safe') {
+    titleSpan.textContent = isEN ? '🟢 Looks Safe' : '🟢 ดูปลอดภัย';
+    tipEl.textContent = isEN
+      ? '✅ Passed all checks — tap for details'
+      : '✅ ผ่านทุกรายการ — กดดูรายละเอียด';
+  } else if (level === 'caution') {
+    titleSpan.textContent = isEN ? '🟡 Use Caution' : '🟡 ควรระวัง';
+    tipEl.textContent = isEN
+      ? '⚠️ Some checks flagged — tap for details'
+      : '⚠️ มีบางรายการน่าสงสัย — กดดูรายละเอียด';
+  } else {
+    titleSpan.textContent = isEN ? '🔴 At Risk' : '🔴 มีความเสี่ยง';
+    tipEl.textContent = isEN
+      ? '🚨 Warning signs detected — tap for details'
+      : '🚨 พบสัญญาณเตือน — กดดูรายละเอียด';
+  }
+
+  tipEl.className = `security-tip ${level} show ${isEN ? 'en' : ''}`;
+}
+
+// ──── Security Detail Popup ────
+// เก็บ results ไว้ global เพื่อให้ popup เข้าถึงได้
+let _secLastResults = [];
+
+function openSecDetail() {
+  const isEN = currentLang === 'en';
+  document.getElementById('secDetailTitle').textContent =
+    isEN ? '🔒 Security Check Details' : '🔒 รายละเอียดการตรวจสอบ';
+
+  const list = document.getElementById('secDetailList');
+  list.innerHTML = '';
+
+  // ถ้ายังไม่มีผล แสดง loading
+  if (!_secLastResults.length) {
+    const p = document.createElement('p');
+    p.style.cssText = 'padding:20px;text-align:center;color:var(--muted);font-size:14px;';
+    p.textContent = isEN ? 'Run the speed test first to check security.' : 'กดทดสอบ WiFi ก่อนเพื่อเช็คความปลอดภัย';
+    list.appendChild(p);
+    document.getElementById('secDetailOverlay').style.display = 'flex';
+    return;
+  }
+
+  _secLastResults.forEach(d => {
+    const item = document.createElement('div');
+    item.className = 'sec-detail-item';
+    const icon = document.createElement('div');
+    icon.className = `sec-detail-icon ${d.level}`;
+    icon.textContent = d.level === 'pass' ? '✓' : d.level === 'fail' ? '✕' : '!';
+    const text = document.createElement('div');
+    text.className = 'sec-detail-text';
+    const label = document.createElement('div');
+    label.className = 'sec-detail-label';
+    label.textContent = d.label;
+    const desc = document.createElement('div');
+    desc.className = 'sec-detail-desc';
+    desc.textContent = d.desc;
+    text.appendChild(label);
+    text.appendChild(desc);
+    item.appendChild(icon);
+    item.appendChild(text);
+    list.appendChild(item);
+  });
+
+  document.getElementById('secDetailOverlay').style.display = 'flex';
+}
+
+function closeSecDetail() {
+  document.getElementById('secDetailOverlay').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('secDetailClose');
+  const overlay  = document.getElementById('secDetailOverlay');
+  if (closeBtn) closeBtn.addEventListener('click', closeSecDetail);
+  if (overlay)  overlay.addEventListener('click', e => { if (e.target === overlay) closeSecDetail(); });
+});
+
+// ──── WiFi Speed Test ────
+const TEST_URL = 'https://speed.cloudflare.com/__down?bytes=2000000';
+
+async function runWifiTest() {
+  const wrap    = document.getElementById('wifiTestWrap');
+  const btn     = document.getElementById('btnTestWifi');
+  const bars    = document.querySelectorAll('.signal-bar');
+  const speedEl = document.getElementById('resultSpeed');
+  const labelEl = document.getElementById('resultLabel');
+  const hintEl  = document.getElementById('resultHint');
+
+  // reset
+  btn.disabled = true;
+  btn.textContent = t('btnTesting');
+  wrap.className = 'wifi-test-wrap testing';
+  speedEl.className = 'result-speed';
+  speedEl.textContent = '— Mbps';
+  labelEl.dataset.state = 'testing';
+  labelEl.textContent = t('btnTesting');
+  hintEl.textContent = '';
+  bars.forEach(b => { b.className = 'signal-bar scanning'; });
+
+  let mbps = 0;
+  try {
+    const start = performance.now();
+    const res = await fetch(TEST_URL + '&_=' + Date.now(), { cache: 'no-store' });
+    await res.arrayBuffer();
+    const ms = performance.now() - start;
+    mbps = parseFloat(((2_000_000 * 8) / (ms / 1000) / 1_000_000).toFixed(1));
+  } catch {
+    mbps = -1;
+  }
+
+  bars.forEach(b => b.classList.remove('scanning'));
+
+  if (mbps < 0) {
+    speedEl.textContent = t('resultNoNet');
+    labelEl.dataset.state = 'error';
+    labelEl.textContent = t('resultNoNetSub');
+    hintEl.textContent  = t('resultNoNetHint');
+    wrap.className = 'wifi-test-wrap';
+    btn.disabled = false;
+    btn.textContent = t('btnTestRetry');
+    return;
+  }
+
+  let level, colorClass, speedClass;
+  if      (mbps >= 100) { level=5; colorClass='done-good'; speedClass='good'; }
+  else if (mbps >= 50)  { level=4; colorClass='done-good'; speedClass='good'; }
+  else if (mbps >= 20)  { level=3; colorClass='done-mid';  speedClass='mid';  }
+  else if (mbps >= 5)   { level=2; colorClass='done-mid';  speedClass='mid';  }
+  else                  { level=1; colorClass='done-bad';  speedClass='bad';  }
+
+  for (let i = 0; i < 5; i++) {
+    await new Promise(r => setTimeout(r, 130));
+    bars[i].className = i < level ? `signal-bar active-${level} lit` : 'signal-bar';
+  }
+
+  wrap.className      = `wifi-test-wrap ${colorClass}`;
+  speedEl.textContent = mbps + ' Mbps';
+  speedEl.className   = `result-speed ${speedClass}`;
+  labelEl.dataset.state = 'done';
+  labelEl.textContent = t('speedLabels')[level];
+  hintEl.textContent  = t('speedHints')[level];
+  btn.disabled        = false;
+  btn.textContent     = t('btnTestRetry');
+
+  setStar(level);
+  const speedMap = { 1:'< 5 Mbps', 2:'5–20 Mbps', 3:'20–50 Mbps', 4:'50–100 Mbps', 5:'100+ Mbps' };
+  selectedSpeed = speedMap[level];
+  document.querySelectorAll('.speed-opt').forEach(b => {
+    b.classList.toggle('selected', b.dataset.speed === selectedSpeed);
+  });
+
+  showToast(t('toastTestDone', mbps, level));
+  runSecurityCheck();
+}
+
+
+document.getElementById('btnTestWifi').addEventListener('click', runWifiTest);
+
+// ──── Review Panel (ใช้ addEventListener แทน inline onclick) ────
+document.getElementById('cancelBtn').addEventListener('click', closeReview);
+document.getElementById('backBtn').addEventListener('click', closeReview);
+document.getElementById('submitBtn').addEventListener('click', submitReview);
+
+// Star buttons
+document.getElementById('starPicker').querySelectorAll('.star-btn').forEach(btn => {
+  btn.addEventListener('click', () => setStar(parseInt(btn.dataset.val)));
+});
+
+// Demo pins
+document.querySelectorAll('.fake-pin').forEach(pin => {
+  pin.addEventListener('click', () => {
+    openReview({
+      name: pin.dataset.name,
+      type: pin.dataset.type,
+      id: pin.dataset.id
+    });
+  });
+});
+
+// ปิด panel เมื่อคลิก backdrop
+document.getElementById('reviewPanel').addEventListener('click', e => {
+  if (e.target === document.getElementById('reviewPanel')) closeReview();
+});
+
+// ปิด panel ด้วย ESC
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeReview();
+});
+
+function renderRatingChart(placeId) {
+  const reviews = getReviews()[placeId] || [];
+  const chart   = document.getElementById('ratingChart');
+  const bars    = document.getElementById('chartBars');
+
+  chart.style.display = 'block';
+  bars.innerHTML = '';
+
+  const counts = { 5:0, 4:0, 3:0, 2:0, 1:0 };
+  reviews.forEach(r => { if (counts[r.stars] !== undefined) counts[r.stars]++; });
+  const total = reviews.length;
+  const max   = Math.max(...Object.values(counts), 1);
+  const colors = { 5:'var(--signal-5)', 4:'var(--signal-4)', 3:'var(--signal-3)', 2:'var(--signal-2)', 1:'var(--signal-1)' };
+
+  [5, 4, 3, 2, 1].forEach(level => {
+    const count = counts[level];
+    const pct   = total > 0 ? Math.round((count / max) * 100) : 0;
+
+    const row = document.createElement('div');
+    row.className = 'chart-row';
+
+    // signal mini icon
+    const sig = document.createElement('div');
+    sig.className = 'chart-label';
+    const sigBars = document.createElement('div');
+    sigBars.className = 'chart-sig';
+    for (let i = 1; i <= 5; i++) {
+      const b = document.createElement('div');
+      b.className = 'chart-sig-bar';
+      b.style.background = i <= level ? colors[level] : 'var(--border)';
+      sigBars.appendChild(b);
+    }
+    sig.appendChild(sigBars);
+
+    // track + fill
+    const track = document.createElement('div');
+    track.className = 'chart-track';
+    const fill = document.createElement('div');
+    fill.className = 'chart-fill';
+    fill.style.width = '0%';
+    fill.style.background = colors[level];
+    fill.style.opacity = total > 0 ? '1' : '0.3';
+    track.appendChild(fill);
+
+    // count label
+    const cnt = document.createElement('div');
+    cnt.className = 'chart-count';
+    cnt.textContent = total > 0 ? count : '-';
+
+    row.appendChild(sig);
+    row.appendChild(track);
+    row.appendChild(cnt);
+    bars.appendChild(row);
+
+    // animate bar
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fill.style.width = (total > 0 ? pct : 8) + '%';
+    }));
+  });
+}
+
+function renderPastReviews(placeId) {
+  const list = document.getElementById('pastReviewsList');
+  list.innerHTML = '';
+  const reviews = (getReviews()[placeId] || []).slice().reverse(); // newest first
+  const isEN = currentLang === 'en';
+
+  if (!reviews.length) {
+    const empty = document.createElement('p');
+    empty.className = 'past-review-empty';
+    empty.textContent = isEN ? 'No reviews yet — be the first!' : 'ยังไม่มีรีวิว — เป็นคนแรกเลย!';
+    list.appendChild(empty);
+    return;
+  }
+
+  const sigColors = { 1:'on-1', 2:'on-2', 3:'on-3', 4:'on-4', 5:'on-5' };
+
+  reviews.forEach(r => {
+    const item = document.createElement('div');
+    item.className = 'past-review-item';
+
+    // signal bars mini
+    const sigWrap = document.createElement('div');
+    sigWrap.className = 'past-review-signal';
+    for (let i = 1; i <= 5; i++) {
+      const b = document.createElement('div');
+      b.className = 'past-sig-bar' + (i <= r.stars ? ` ${sigColors[r.stars]}` : '');
+      sigWrap.appendChild(b);
+    }
+
+    const speedSpan = document.createElement('span');
+    speedSpan.className = 'past-review-speed';
+    speedSpan.textContent = r.speed || '—';
+
+    const dateSpan = document.createElement('span');
+    dateSpan.className = 'past-review-date';
+    dateSpan.textContent = r.ts ? new Date(r.ts).toLocaleDateString(isEN ? 'en-GB' : 'th-TH', { day:'numeric', month:'short', year:'2-digit' }) : '';
+
+    const top = document.createElement('div');
+    top.className = 'past-review-top';
+    top.appendChild(sigWrap);
+    top.appendChild(speedSpan);
+    top.appendChild(dateSpan);
+    item.appendChild(top);
+
+    if (r.comment) {
+      const c = document.createElement('div');
+      c.className = 'past-review-comment';
+      c.textContent = r.comment;
+      item.appendChild(c);
+    }
+
+    list.appendChild(item);
+  });
+}
+
+function openReview(place) {
+  currentPlace = place;
+  selectedStar = 0;
+  selectedSpeed = '';
+  document.getElementById('sheetPlaceName').textContent = place.name;
+  document.getElementById('commentInput').value = '';
+  document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.speed-opt').forEach(b => b.classList.remove('selected'));
+  // reset wifi test widget
+  document.getElementById('wifiTestWrap').className = 'wifi-test-wrap';
+  document.querySelectorAll('.signal-bar').forEach(b => b.className = 'signal-bar');
+  document.getElementById('resultSpeed').textContent = '— Mbps';
+  document.getElementById('resultSpeed').className = 'result-speed';
+  const rl = document.getElementById('resultLabel');
+  rl.dataset.state = 'default';
+  rl.innerHTML = t('resultDefault').replace('\n','<br>');
+  document.getElementById('resultHint').textContent = '';
+  document.getElementById('securityPanel').style.display = '';
+  document.getElementById('securityChecks').innerHTML = '';
+  const testBtn = document.getElementById('btnTestWifi');
+  testBtn.disabled = false;
+  testBtn.textContent = t('btnTestStart');
+  document.getElementById('reviewPanel').classList.add('open');
+  renderPastReviews(place.id);
+  renderRatingChart(place.id);
+  runSecurityCheck();
+}
+function closeReview() {
+  document.getElementById('reviewPanel').classList.remove('open');
+}
+function setStar(val) {
+  selectedStar = val;
+  document.querySelectorAll('.star-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.val) <= val);
+  });
+}
+function setSpeed(btn, val) {
+  selectedSpeed = val;
+  document.querySelectorAll('.speed-opt').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+function submitReview() {
+  if (!selectedStar) { showToast(t('toastNoStar')); return; }
+
+  const comment = document.getElementById('commentInput').value.trim();
+  // ดึงความเร็วจากผลเทสถ้ามี
+  const speedFromTest = document.getElementById('resultSpeed').textContent;
+  const saved = saveReview(currentPlace.id, {
+    stars: selectedStar,
+    speed: speedFromTest !== '— Mbps' ? speedFromTest : selectedSpeed || '—',
+    comment: comment,
+    ts: Date.now()
+  });
+  if (saved) {
+    showToast(t('toastSaved'));
+    doSearch();
+    renderPastReviews(currentPlace.id);
+    renderRatingChart(currentPlace.id);
+  }
+}
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ──── Load Maps API ────
+if (GOOGLE_MAPS_KEY) {
+  const s = document.createElement('script');
+  s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_KEY)}&libraries=places&callback=initMap`;
+  s.async = true;
+  document.head.appendChild(s);
+}
+</script>
+<!-- ══ SECURITY DETAIL POPUP ══ -->
+<div id="secDetailOverlay" style="display:none">
+  <div class="sec-detail-box">
+    <div class="sec-detail-header">
+      <span id="secDetailTitle">🔒 Security Details</span>
+      <button class="sec-detail-close" id="secDetailClose">✕</button>
+    </div>
+    <div class="sec-detail-list" id="secDetailList"></div>
+  </div>
+</div>
+
+</body>
+</html>
