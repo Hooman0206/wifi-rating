@@ -685,7 +685,7 @@
     font-family: 'Space Mono', monospace;
     flex-shrink: 0;
   }
-  
+
   /* ─── WIFI TEST BUTTON ─── */
   .wifi-test-wrap {
     background: var(--card);
@@ -1493,6 +1493,124 @@
     .adsense-slot { min-height: 50px; }
   }
 </style>
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC7WdosX3aqxGZbemj7ns6zTmrMJujle6k",
+  authDomain: "wifi-rating.firebaseapp.com",
+  projectId: "wifi-rating",
+  storageBucket: "wifi-rating.firebasestorage.app",
+  messagingSenderId: "661596719566",
+  appId: "1:661596719566:web:14b9655ec2da2224ba039f"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ──── Device ID — fingerprint ถาวรต่อเครื่อง ────
+function getDeviceId() {
+  let id = localStorage.getItem('wifirating-device-id');
+  if (!id) {
+    id = 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
+    localStorage.setItem('wifirating-device-id', id);
+  }
+  return id;
+}
+
+// ──── Firestore: โหลดรีวิวของ place ────
+window.fbGetReviews = async function(placeId) {
+  try {
+    const q = query(collection(db, 'ratings'), where('place_id', '==', placeId), orderBy('date', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({
+      stars:   d.data().star,
+      speed:   d.data().speed || '—',
+      comment: d.data().comment || '',
+      ts:      d.data().date?.toMillis ? d.data().date.toMillis() : Date.now(),
+    }));
+  } catch(e) {
+    console.warn('fbGetReviews error:', e);
+    return [];
+  }
+};
+
+// ──── Firestore: เช็ค ratelimit แล้วบันทึกรีวิว ────
+window.fbSaveReview = async function(placeId, placeName, data) {
+  const deviceId = getDeviceId();
+  const isEN = window.currentLang === 'en';
+  const FOUR_HOURS = 4 * 60 * 60 * 1000;
+
+  try {
+    // เช็ค ratelimit ใน Firestore
+    const rateLimitId = deviceId + '_' + placeId;
+    const rlRef  = doc(db, 'ratelimit', rateLimitId);
+    const rlSnap = await getDoc(rlRef);
+
+    if (rlSnap.exists()) {
+      const lastTs = rlSnap.data().lastReview?.toMillis?.() || 0;
+      const diff   = Date.now() - lastTs;
+      if (diff < FOUR_HOURS) {
+        const hoursLeft = Math.ceil((FOUR_HOURS - diff) / (60 * 60 * 1000));
+        const minLeft   = Math.ceil((FOUR_HOURS - diff) / 60000);
+        const msg = hoursLeft >= 1
+          ? (isEN ? `⏳ Please wait ${hoursLeft} more hour${hoursLeft > 1 ? 's' : ''} before reviewing again`
+                  : `⏳ กรุณารออีก ${hoursLeft} ชั่วโมงก่อนรีวิวใหม่`)
+          : (isEN ? `⏳ Please wait ${minLeft} more minute${minLeft > 1 ? 's' : ''}`
+                  : `⏳ กรุณารออีก ${minLeft} นาที`);
+        window.showToast(msg);
+        return false;
+      }
+    }
+
+    // บันทึกรีวิวลง Firestore
+    await addDoc(collection(db, 'ratings'), {
+      place_id:   placeId,
+      wifi_name:  placeName,
+      star:       data.stars,
+      speed:      data.speed || '—',
+      comment:    data.comment || '',
+      device_id:  deviceId,
+      date:       serverTimestamp(),
+    });
+
+    // อัปเดต ratelimit
+    const rlData = { lastReview: serverTimestamp(), place_id: placeId };
+    if (rlSnap.exists()) {
+      await updateDoc(rlRef, rlData);
+    } else {
+      await setDoc(rlRef, rlData);
+    }
+
+    // sync localStorage ด้วยเพื่อให้ UI อัปเดตเร็ว
+    const local = window.getLocalReviews();
+    if (!local[placeId]) local[placeId] = [];
+    local[placeId].push({ ...data, ts: Date.now() });
+    localStorage.setItem('wifireviews', JSON.stringify(local));
+
+    return true;
+
+  } catch(e) {
+    console.error('fbSaveReview error:', e);
+    // fallback: บันทึก localStorage แทน
+    return window.localSaveReview(placeId, data);
+  }
+};
+
+// ──── Firestore: โหลด score สรุปของ place ────
+window.fbGetScore = async function(placeId) {
+  try {
+    const reviews = await window.fbGetReviews(placeId);
+    if (!reviews.length) return null;
+    const avg = reviews.reduce((s, r) => s + r.stars, 0) / reviews.length;
+    return { avg: avg.toFixed(1), count: reviews.length, speed: reviews[0]?.speed };
+  } catch(e) { return null; }
+};
+
+console.log('✅ Firebase connected — wifi-rating');
+</script>
 </head>
 <body>
 
@@ -1890,7 +2008,7 @@ const LANGS = {
     submitBtn         : 'Submit ✓',
     reviewBtn         : '+ Rate WiFi',
     toastSaved        : '✓ Review saved!',
-    toastRateLimit    : '⏳ You just reviewed this place. Please wait 5 minutes.',
+    toastRateLimit    : '⏳ You already reviewed this place. Please wait 4 hours before reviewing again.',
     toastNoStar       : '⚠️ Please select a signal rating first!',
     toastNoSpeed      : '⚠️ Please select an estimated speed!',
     toastTestDone     : (mbps, level) => `📶 ${mbps} Mbps — Auto-selected ${level} bar${level>1?'s':''}!`,
@@ -1931,7 +2049,7 @@ const LANGS = {
     submitBtn         : 'ส่งรีวิว ✓',
     reviewBtn         : '+ รีวิว WiFi',
     toastSaved        : '✓ บันทึกรีวิวแล้ว!',
-    toastRateLimit    : '⏳ คุณเพิ่งรีวิวสถานที่นี้ไปแล้ว กรุณารอ 5 นาที',
+    toastRateLimit    : '⏳ คุณเพิ่งรีวิวสถานที่นี้ไปแล้ว กรุณารอ 4 ชั่วโมงก่อนรีวิวใหม่',
     toastNoStar       : '⚠️ กรุณาเลือกคะแนนก่อนนะ!',
     toastNoSpeed      : '⚠️ กรุณาเลือกความเร็ว WiFi ด้วยนะ!',
     toastTestDone     : (mbps, level) => `📶 วัดได้ ${mbps} Mbps — เลือก ${level} ขีดให้แล้ว!`,
@@ -2050,22 +2168,30 @@ function escapeHtml(str) {
 }
 
 // ──── Local storage data store ────
-function getReviews() {
+// ──── Local review helpers (fallback + UI cache) ────
+window.getLocalReviews = function() {
   try { return JSON.parse(localStorage.getItem('wifireviews') || '{}'); } catch { return {}; }
-}
-function saveReview(placeId, data) {
-  // Rate limit: ป้องกันรีวิวซ้ำภายใน 5 นาที
-  const all = getReviews();
+};
+function getReviews() { return window.getLocalReviews(); }
+
+// local save fallback ถ้า Firebase ไม่ตอบ
+window.localSaveReview = function(placeId, data) {
+  const all = window.getLocalReviews();
   if (!all[placeId]) all[placeId] = [];
   const last = all[placeId][all[placeId].length - 1];
-  if (last && Date.now() - last.ts < 5 * 60 * 1000) {
+  if (last && Date.now() - last.ts < 4 * 60 * 60 * 1000) {
     showToast(t('toastRateLimit'));
     return false;
   }
   all[placeId].push(data);
   localStorage.setItem('wifireviews', JSON.stringify(all));
   return true;
+  };
+
+function saveReview(placeId, data) {
+  return window.localSaveReview(placeId, data);
 }
+
 function getPlaceScore(placeId) {
   const reviews = getReviews()[placeId] || [];
   if (!reviews.length) return null;
@@ -2851,6 +2977,23 @@ function renderRatingChart(placeId) {
   });
 }
 
+// ──── โหลดรีวิวจาก Firebase แล้ว render ────
+async function loadAndRenderReviews(placeId) {
+  if (typeof window.fbGetReviews === 'function') {
+    try {
+      const fbReviews = await window.fbGetReviews(placeId);
+      if (fbReviews.length) {
+        // sync เข้า localStorage เพื่อให้ getPlaceScore ทำงานได้
+        const local = window.getLocalReviews();
+        local[placeId] = fbReviews;
+        localStorage.setItem('wifireviews', JSON.stringify(local));
+      }
+    } catch(e) { console.warn('loadAndRenderReviews:', e); }
+  }
+  renderPastReviews(placeId);
+  renderRatingChart(placeId);
+}
+
 function renderPastReviews(placeId) {
   const list = document.getElementById('pastReviewsList');
   list.innerHTML = '';
@@ -2932,6 +3075,8 @@ function openReview(place) {
   renderPastReviews(place.id);
   renderRatingChart(place.id);
   runSecurityCheck();
+
+    loadAndRenderReviews(place.id);
 }
 function closeReview() {
   document.getElementById('reviewPanel').classList.remove('open');
@@ -2947,23 +3092,38 @@ function setSpeed(btn, val) {
   document.querySelectorAll('.speed-opt').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
 }
-function submitReview() {
+async function submitReview() {
   if (!selectedStar) { showToast(t('toastNoStar')); return; }
 
-  const comment = document.getElementById('commentInput').value.trim();
-  // ดึงความเร็วจากผลเทสถ้ามี
+   const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ Saving...';
+
+  const comment       = document.getElementById('commentInput').value.trim();
   const speedFromTest = document.getElementById('resultSpeed').textContent;
-  const saved = saveReview(currentPlace.id, {
-    stars: selectedStar,
-    speed: speedFromTest !== '— Mbps' ? speedFromTest : selectedSpeed || '—',
+  const data = {
+    stars:   selectedStar,
+    speed:   speedFromTest !== '— Mbps' ? speedFromTest : selectedSpeed || '—',
     comment: comment,
-    ts: Date.now()
-  });
+    ts:      Date.now()
+  };
+
+  let saved = false;
+
+  // ใช้ Firebase ถ้าพร้อม
+  if (typeof window.fbSaveReview === 'function') {
+    saved = await window.fbSaveReview(currentPlace.id, currentPlace.name, data);
+  } else {
+    saved = saveReview(currentPlace.id, data);
+  }
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = t('submitBtn');
+
   if (saved) {
     showToast(t('toastSaved'));
     doSearch();
-    renderPastReviews(currentPlace.id);
-    renderRatingChart(currentPlace.id);
+   await loadAndRenderReviews(currentPlace.id);
   }
 }
 function showToast(msg) {
