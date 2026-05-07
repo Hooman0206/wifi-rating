@@ -411,8 +411,6 @@
     background: var(--bg);
     width: 100%;
     height: 100%;
-    max-width: 100%;
-    max-height: 100%;
     display: flex;
     flex-direction: column;
     animation: pageFadeIn .25s ease;
@@ -458,7 +456,7 @@
     flex: 1;
   }
 
-  /* 2-column body */
+  /* body — desktop: 2 col, mobile: 1 col scroll */
   .sheet-body {
     display: flex;
     flex: 1;
@@ -492,16 +490,57 @@
   .sheet-right::-webkit-scrollbar { width: 3px; }
   .sheet-right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-  /* footer actions */
+  /* footer */
   .sheet-footer {
     padding: 14px 28px;
     border-top: 1px solid var(--border);
     flex-shrink: 0;
     display: flex;
     gap: 10px;
+    background: var(--surface);
   }
 
   .rating-section { margin: 0; }
+ @media (max-width: 700px) {
+    .review-sheet {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .sheet-body {
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      /* ไม่ fix height ให้ scroll ได้ทั้งหมด */
+      flex: 1;
+    }
+    .sheet-left {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 16px;
+      overflow-y: visible; /* ไม่ scroll ซ้อน scroll */
+      flex-shrink: 0;
+      height: auto;
+    }
+    .sheet-right {
+      padding: 16px;
+      overflow-y: visible;
+      flex-shrink: 0;
+      height: auto;
+      padding-bottom: 24px;
+    }
+    .sheet-header { padding: 12px 16px; }
+    .sheet-back-btn { padding: 7px 12px; font-size: 13px; }
+    .sheet-place-big { font-size: 17px; }
+    .sheet-footer {
+      padding: 12px 16px;
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+    }
+  }
   .rating-label {
     font-size: 15px;
     font-family: 'Space Mono', monospace;
@@ -646,18 +685,7 @@
     font-family: 'Space Mono', monospace;
     flex-shrink: 0;
   }
-
-  /* mobile: stack vertically */
-  @media (max-width: 640px) {
-    .sheet-body { flex-direction: column; overflow: visible; }
-    .sheet-left  { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 16px; max-height: none; overflow: visible; }
-    .sheet-right { padding: 16px; max-height: none; }
-    .sheet-header { padding: 12px 16px; }
-    .sheet-footer { padding: 12px 16px; }
-    .review-sheet { border-radius: 0; }
-    .sheet-place-big { font-size: 17px; }
-    .sheet-back-btn { padding: 7px 12px; font-size: 12px; }
-  }
+  
   /* ─── WIFI TEST BUTTON ─── */
   .wifi-test-wrap {
     background: var(--card);
