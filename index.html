@@ -2963,6 +2963,41 @@ if (GOOGLE_MAPS_KEY) {
     <div class="sec-detail-list" id="secDetailList"></div>
   </div>
 </div>
+<script type="module">
+  // 1. นำเข้า library (ผมเพิ่ม Firestore ให้ด้วย)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  // 2. Config ของคุณ (ถูกต้องแล้ว)
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7WdosX3aqxGZbemj7ns6zTmrMJujle6k",
+    authDomain: "wifi-rating.firebaseapp.com",
+    projectId: "wifi-rating",
+    storageBucket: "wifi-rating.firebasestorage.app",
+    messagingSenderId: "661596719566",
+    appId: "1:661596719566:web:14b9655ec2da2224ba039f",
+    measurementId: "G-VH31ZF8JHK"
+  };
+
+  // 3. เริ่มการทำงาน (Initialize)
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app); // ตัวนี้แหละที่จะใช้คุยกับฐานข้อมูล
+
+  // 4. ฟังก์ชันสำหรับส่งข้อมูล (สร้างไว้ให้เรียกใช้)
+  window.saveWifi = async (name, rating) => {
+    try {
+      await addDoc(collection(db, "ratings"), {
+        wifi_name: name,
+        star: rating,
+        date: serverTimestamp()
+      });
+      alert("บันทึกคะแนนเรียบร้อย!");
+    } catch (e) {
+      console.error("Error: ", e);
+      alert("บันทึกไม่สำเร็จ ตรวจสอบ Rules ใน Firebase นะครับ");
+    }
+  };
+</script>
 
 </body>
 </html>
