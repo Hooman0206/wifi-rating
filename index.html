@@ -142,6 +142,7 @@
     border-bottom: 1px solid var(--border);
     z-index: 100;
     flex-shrink: 0;
+    transition: padding .2s;
   }
   .logo {
     font-family: 'Space Mono', monospace;
@@ -150,6 +151,7 @@
     color: var(--accent);
     letter-spacing: -1px;
     white-space: nowrap;
+    transition: all .2s;
   }
   .logo span { color: var(--green); }
   .search-wrap {
@@ -174,6 +176,31 @@
     font-size: 16px;
   }
   #searchInput::placeholder { color: var(--muted); }
+  /* ─── MOBILE SEARCH EXPAND ─── */
+  @media (max-width: 640px) {
+    /* ตอน focus: ซ่อนทุกอย่างใน nav เหลือแค่ search bar */
+    nav.search-focused .logo        { display: none; }
+    nav.search-focused .gps-btn     { display: none; }
+    nav.search-focused .theme-btn   { display: none; }
+    nav.search-focused .lang-dropdown { display: none; }
+    nav.search-focused { padding: 10px 12px; gap: 8px; }
+    nav.search-focused .search-wrap { flex: 1; }
+
+    /* ปุ่ม cancel เฉพาะตอน focus */
+    .search-cancel-btn {
+      display: none;
+      padding: 8px 12px;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 14px;
+      font-family: 'Space Mono', monospace;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    nav.search-focused .search-cancel-btn { display: block; }
+  }
   #searchBtn {
     padding: 10px 20px;
     background: var(--accent);
@@ -2083,6 +2110,7 @@ function applyLang() {
   // nav
   document.getElementById('searchInput').placeholder = L.searchPlaceholder;
   document.getElementById('searchBtn').textContent   = L.searchBtn;
+   document.getElementById('searchCancelBtn').textContent = currentLang === 'en' ? 'Cancel' : 'ยกเลิก';
   document.getElementById('gpsBtn').title = currentLang === 'en' ? 'Find places near me' : 'ค้นหาสถานที่ใกล้ฉัน';
 
   // sidebar
@@ -2376,6 +2404,27 @@ function initMap() {
 // ──── Search ────
 document.getElementById('searchBtn').addEventListener('click', doSearch);
 document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+// ─── Mobile search expand ───
+const searchInput     = document.getElementById('searchInput');
+const searchCancelBtn = document.getElementById('searchCancelBtn');
+const navEl           = document.querySelector('nav');
+
+searchInput.addEventListener('focus', () => {
+  navEl.classList.add('search-focused');
+});
+searchCancelBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  searchInput.blur();
+  navEl.classList.remove('search-focused');
+});
+searchInput.addEventListener('blur', () => {
+  // ถ้าไม่ได้กด cancel ให้ collapse หลังจาก 200ms (รอปุ่ม search กด)
+  setTimeout(() => {
+    if (document.activeElement !== searchInput) {
+      navEl.classList.remove('search-focused');
+    }
+  }, 200);
+});
 
 async function doSearch() {
   const q = document.getElementById('searchInput').value.trim();
