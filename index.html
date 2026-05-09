@@ -1649,6 +1649,7 @@ console.log('✅ Firebase connected — wifi-rating');
     <input id="searchInput" type="text" placeholder="Search hotels, cafes, restaurants..." />
     <button id="searchBtn">Search</button>
   </div>
+    <button class="search-cancel-btn" id="searchCancelBtn">Cancel</button>
   <button class="gps-btn" id="gpsBtn" title="Find places near me" aria-label="Use my location">📍</button>
   <button class="theme-btn" id="themeBtn" aria-label="Toggle theme" title="Switch Light/Dark">🌙</button>
   <div class="lang-dropdown" id="langDropdown">
@@ -2405,9 +2406,11 @@ function initMap() {
 document.getElementById('searchBtn').addEventListener('click', doSearch);
 document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
 // ─── Mobile search expand ───
+document.addEventListener('DOMContentLoaded', () => {
 const searchInput     = document.getElementById('searchInput');
 const searchCancelBtn = document.getElementById('searchCancelBtn');
 const navEl           = document.querySelector('nav');
+  if (!searchInput || !searchCancelBtn || !navEl) return;
 
 searchInput.addEventListener('focus', () => {
   navEl.classList.add('search-focused');
@@ -2424,6 +2427,7 @@ searchInput.addEventListener('blur', () => {
       navEl.classList.remove('search-focused');
     }
   }, 200);
+  });
 });
 
 async function doSearch() {
